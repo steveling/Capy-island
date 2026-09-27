@@ -489,12 +489,70 @@ window.setLook = (c, a) => {
 };
 
 // ----- what's new (existing players, once) -----
-function showNews() {
+let newsNext = null;
+window.newsClose = () => {
+  closeModal();
+  const n = newsNext;
+  newsNext = null;
+  if (n) n();
+};
+function showNews(next) {
+  newsNext = next || null;
   modal(`<h2>🏛️ Something new on Capy Island!</h2><div style="text-align:center"><span class="npc" style="display:inline-block">${OWL_SVG}</span><span class="npc" style="display:inline-block">${PIGEON_SVG}</span></div>
  <p class="c">A <b>museum</b> opened next to your house! Professor Hoot 🦉 wants bugs, fish, fossils, sea creatures, and art. Bijou runs a cozy <b>café</b> inside! ☕</p>
  <p class="c" style="font-size:15px">🎁 Berry left you a <b>shovel</b> 🪏, a <b>watering can</b> 💧, and <b>tulip seeds</b> 🌱.<br>⭐ Dig up star cracks · 🌷 plant flowers · 🌊 check the tide pools · 🎈 pop balloons · 🌠 wish on shooting stars at night · 🪞 try the new mirror in your house!</p>
- <div class="row"><button class="btn" onclick="closeModal()">Let's go! 🩷</button></div>`);
+ <div class="row"><button class="btn" onclick="newsClose()">Let's go! 🩷</button></div>`);
 }
+// ----- what's new in v5 (shown once to each existing island, after any secret-emoji prompt and museum news)
+const WHATS_NEW = [
+  [
+    '👥',
+    'Take turns!',
+    'Everyone can have their own island. Tap your name at the top to switch, and pick a secret emoji 🤫 so only you can open yours.'
+  ],
+  [
+    '💬',
+    'Chat with best friends',
+    'When a best friend visits, tap 💬 to say hi! Mean words turn into cute emojis 🌸'
+  ],
+  [
+    '😊',
+    'Your own emotes',
+    'Pick your favourite emojis with ✏️ on the emote bar, or in the Mirror. They float up into the sky!'
+  ],
+  ['🏠', 'Peek inside', "Best friends can look around each other's houses."],
+  [
+    '💤',
+    'Shh, napping!',
+    "Visit a friend who isn't playing and they're asleep in bed. Listen for the snores!"
+  ],
+  [
+    '🎣',
+    'Better fishing',
+    'A real fishing rod! Watch out for tricky nibbles, and fish your neighbours want bite more often.'
+  ],
+  [
+    '🔊',
+    'New sounds',
+    'Everything you do has its own sound, and Mochi, Pip and Puddle have their own voices.'
+  ],
+  ['📱', 'Little fixes', 'Buttons stay on screen on small phones, and pressing back asks before you leave.']
+];
+function showWhatsNew() {
+  modal(
+    `<h2>🎉 New on Capy Island!</h2><p class="c" style="margin-top:0">Hi ${esc(S.name)}! Here's what's new:</p><div class="news">` +
+      WHATS_NEW.map(
+        ([e, t, d]) => `<div class="nw"><span class="ne">${e}</span><span><b>${t}</b>${d}</span></div>`
+      ).join('') +
+      `</div><p class="c" style="font-size:13px">Grown-ups: hold ⚙️ for the chat switch, secret emoji resets, and bringing a player over from another phone.</p>` +
+      `<div class="row"><button class="btn" onclick="whatsNewDone()">Let's play! 🩷</button></div>`
+  );
+}
+window.whatsNewDone = () => {
+  S.news = NEWS_V;
+  save();
+  closeModal();
+};
 // CSS filter functions done in JS on cached sprites (iPhone Safari has no canvas ctx.filter); same maths as the CSS spec
 function fxOps(f) {
   const o = [];
