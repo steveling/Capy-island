@@ -154,6 +154,15 @@ canvas {
   flex-wrap: wrap;
   margin-top: 12px;
 }
+/* a dialog's closing buttons stay pinned to the bottom while long lists scroll (#3) */
+.card > .row:last-child {
+  position: sticky;
+  bottom: -18px;
+  z-index: 1;
+  margin: 12px -18px -18px;
+  padding: 12px 18px 18px;
+  background: linear-gradient(rgba(255, 247, 251, 0), #fff7fb 12px);
+}
 .tabs {
   display: flex;
   gap: 8px;
@@ -1015,8 +1024,14 @@ canvas.accc {
   font-size: 14px;
   margin: 8px 0 0;
 }
+/* the museum's buttons stay pinned to the bottom while the cases scroll (#3) */
 .mbtns {
-  margin-top: 10px;
+  position: sticky;
+  bottom: calc(-12px - env(safe-area-inset-bottom));
+  z-index: 1;
+  margin: 10px 0 calc(-12px - env(safe-area-inset-bottom));
+  padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(rgba(255, 227, 239, 0), #ffe3ef 12px);
 }
 .cafe {
   background: repeating-linear-gradient(90deg, #fff3e8 0 22px, #ffe8d6 22px 44px);
