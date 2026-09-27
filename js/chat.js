@@ -12,26 +12,71 @@ const CHAT_MAX = 60, // characters per message
   CHAT_LOG = 30, // messages kept in the log
   SAY_T = 6; // seconds a speech bubble stays up
 
-// words that get hidden. Each letter also matches common look-alikes and repeats ("fuuuck", "sh1t").
+// words that get swapped for a cute emoji (#11). Each letter also matches look-alikes ("sh1t", "sh*t"), repeats
+// ("fuuuck"), and letters split by separators ("f.u.c.k", "f-u-c-k", or "f u c k" with every letter apart).
 // prettier-ignore
 const CHAT_BAD = [
-  'fuck', 'fucker', 'fucking', 'shit', 'shitty', 'bitch', 'bastard', 'ass', 'asshole', 'arse', 'dick', 'cock',
-  'pussy', 'cunt', 'whore', 'slut', 'fag', 'faggot', 'nigger', 'nigga', 'retard', 'retarded', 'penis', 'vagina',
-  'boobs', 'porn', 'sex', 'sexy', 'nude', 'nudes', 'naked', 'kys', 'stfu', 'wtf', 'kill yourself', 'shut up',
-  'stupid', 'idiot', 'dumb', 'loser', 'ugly', 'hate you'
+  'fuck', 'fucker', 'fucking', 'fuk', 'fuq', 'fck', 'phuck', 'motherfucker', 'fuckface', 'shit', 'shitty',
+  'shite', 'sht', 'bullshit', 'shithead', 'bitch', 'btch', 'biatch', 'bastard', 'ass', 'asshole', 'arse',
+  'dumbass', 'jackass', 'dick', 'dickhead', 'cock', 'pussy', 'cunt', 'twat', 'wanker', 'douche', 'whore', 'slut',
+  'fag', 'faggot', 'nigger', 'nigga', 'retard', 'retarded', 'penis', 'vagina', 'boobs', 'porn', 'sex', 'sexy',
+  'nude', 'nudes', 'naked', 'pedo', 'rape', 'damn', 'dammit', 'crap', 'crappy', 'hell', 'piss', 'kys', 'stfu',
+  'wtf', 'kill yourself', 'kill you', 'shut up', 'stupid', 'idiot', 'dumb', 'loser', 'ugly', 'hate you'
 ];
-const CHAT_LIKE = { a: 'a4@', e: 'e3', i: 'i1!|', l: 'l1|', o: 'o0', s: 's5$', t: 't7+', g: 'g9', b: 'b8' };
+// prettier-ignore
+const CHAT_CUTE = ['🌸', '🐰', '🍓', '🦄', '🌈', '💖', '🐣', '🍭', '⭐', '🧁', '🐥', '🍬', '🌻', '🦋', '🍩'];
+const CHAT_LIKE = {
+  a: 'a4@*',
+  e: 'e3*',
+  i: 'i1!|*',
+  o: 'o0*',
+  u: 'uv*',
+  l: 'l1|',
+  s: 's5$',
+  t: 't7+',
+  g: 'g9',
+  b: 'b8'
+};
 // (no lookbehind: older iPads' Safari can't parse it, so the leading boundary is captured and put back)
-const CHAT_BAD_RE = new RegExp(
-  '(^|[^\\p{L}\\p{N}])(?:' +
-    CHAT_BAD.map(w =>
-      [...w]
-        .map(ch => (ch === ' ' ? '[\\s._-]*' : `[${(CHAT_LIKE[ch] || ch).replace(/[\\\]^-]/g, '\\$&')}]+`))
-        .join('')
-    ).join('|') +
-    ')(?:s|es|ed|er|ers|ing|in|y)?(?![\\p{L}\\p{N}])',
-  'giu'
-);
+const CHAT_BAD_RE = (() => {
+  const letter = ch => `[${(CHAT_LIKE[ch] || ch).replace(/[\\\]^-]/g, '\\$&')}]+`,
+    // either letters joined by optional non-space separators, or a separator between every letter;
+    // spaces are only allowed in the second shape, so "it's hit" or "see x-ray" aren't read as bad words
+    word = w => {
+      const l = [...w].map(letter);
+      return `(?:${l.join('[._*~-]*')}|${l.join('[\\s._*~-]+')})`;
+    };
+  return new RegExp(
+    '(^|[^\\p{L}\\p{N}])(?:' +
+      CHAT_BAD.map(p => p.split(' ').map(word).join('[\\s._-]+')).join('|') +
+      ')(?:s|es|ed|er|ers|ing|in|y)?(?![\\p{L}\\p{N}])',
+    'giu'
+  );
+})();
+// the same bad word (however it's spelled) always turns into the same cute emoji
+const CHAT_UNLIKE = {
+  4: 'a',
+  '@': 'a',
+  3: 'e',
+  1: 'i',
+  '!': 'i',
+  '|': 'i',
+  0: 'o',
+  5: 's',
+  $: 's',
+  7: 't',
+  '+': 't'
+};
+function cuteFor(w) {
+  const k = [...w.toLowerCase()]
+    .map(c => CHAT_UNLIKE[c] || c)
+    .join('')
+    .replace(/[^\p{L}]/gu, '')
+    .replace(/(.)\1+/gu, '$1');
+  let h = 7;
+  for (const c of k) h = (Math.imul(h, 31) + c.codePointAt(0)) >>> 0;
+  return CHAT_CUTE[h % CHAT_CUTE.length];
+}
 
 // the one place chat text is cleaned: run on send AND on receive (the other phone may not be this code)
 function cleanChat(t) {
@@ -48,7 +93,7 @@ function cleanChat(t) {
     .replace(/\S+@\S+/g, '🚫')
     .replace(/\b[\w-]+\.(?:com|net|org|io|co|me|gg|tv|app|xyz|us|uk|ca)\b\S*/gi, '🚫')
     .replace(/\d(?:[\s().+-]*\d){6,}/g, '🚫');
-  s = s.replace(CHAT_BAD_RE, '$1🙊');
+  s = s.replace(CHAT_BAD_RE, (m, pre) => pre + cuteFor(m.slice(pre.length)));
   return s.trim();
 }
 

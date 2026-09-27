@@ -26,17 +26,48 @@ async function adaAndBen(game, newPhone) {
   return { ada: game.page, ben: ben.page, island };
 }
 
+// in expected text, ● stands for any of the cute emojis bad words turn into (#11)
+async function cleaned(page, input) {
+  return page.evaluate(t => ({ out: cleanChat(t), cute: CHAT_CUTE }), input);
+}
+function matches(out, want, cute) {
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    '^' +
+      want
+        .split('●')
+        .map(esc)
+        .join('(?:' + cute.map(esc).join('|') + ')') +
+      '$',
+    'u'
+  ).test(out);
+}
+
 test.describe('cleaning messages', () => {
   const cases = [
     ['hello!!', 'hello!!'],
     ['  lots    of   space  ', 'lots of space'],
     ['a'.repeat(80), 'a'.repeat(60)],
-    ['you are STUPID', 'you are 🙊'],
-    ['fuuuuck', '🙊'],
-    ['sh1t happens', '🙊 happens'], // dotted letters are not caught (known gap)
-    ['shut   up', '🙊'],
-    ['stupid dumb idiot', '🙊 🙊 🙊'],
-    ['dumb,dumb!', '🙊,🙊!'],
+    ['you are STUPID', 'you are ●'],
+    ['fuuuuck', '●'],
+    ['sh1t happens', '● happens'],
+    ['shut   up', '●'],
+    ['stupid dumb idiot', '● ● ●'],
+    ['dumb,dumb!', '●,●!'],
+    // spaced-out, dotted and starred letters (#11)
+    ['what the f.u.c.k', 'what the ●'],
+    ['f u c k you', '● you'],
+    ['F-U-C-K', '●'],
+    ['sh*t', '●'],
+    ['b!tch', '●'],
+    ['a s s', '●'],
+    // misspellings, compounds and milder swears (#11)
+    ['fuk off', '● off'],
+    ['what the hell', 'what the ●'],
+    ['bullshit', '●'],
+    ['you dumbass', 'you ●'],
+    ['dickhead', '●'],
+    ['damn it', '● it'],
     ['my number is 555-123-4567', 'my number is 🚫'],
     ['call 5551234567 ok', 'call 🚫 ok'],
     ['I have 1200 coins', 'I have 1200 coins'],
@@ -44,14 +75,64 @@ test.describe('cleaning messages', () => {
     ['https://evil.test/x', '🚫'],
     ['mail me kid@example.com', 'mail me 🚫'],
     ['visit roblox.com', 'visit 🚫'],
-    ['grass class assassin', 'grass class assassin'],
     ['zero​width‮flip', 'zerowidthflip']
   ];
   for (const [input, want] of cases)
     test(`"${input.slice(0, 30)}"`, async ({ page, game }) => {
       await game.open();
-      expect(await page.evaluate(t => cleanChat(t), input)).toBe(want);
+      const { out, cute } = await cleaned(page, input);
+      expect(matches(out, want, cute), `${JSON.stringify(input)} -> ${JSON.stringify(out)}`).toBe(true);
     });
+
+  test('ordinary kid chat is left alone', async ({ page, game }) => {
+    await game.open();
+    // words that contain or sit next to bad words, but aren't
+    const fine = [
+      'grass class assassin',
+      'pass the bass',
+      'hello! shell fish',
+      'scrap metal',
+      "it's hit song time",
+      "that's hit",
+      'I see x-ray fish',
+      'as soon as possible',
+      'is it your turn',
+      'peacock and cockatoo',
+      'I dug up an ammonite',
+      'my garden has a hoe and a can',
+      'the class is so fun',
+      'Scunthorpe',
+      'sussex and essex',
+      'I love my cute capybara',
+      'lets go fishing at the dock',
+      'pumpkin pie',
+      'I hit the ball',
+      'dumbo the elephant'
+    ];
+    const out = await page.evaluate(list => list.map(t => cleanChat(t)), fine);
+    expect(out).toEqual(fine);
+  });
+
+  test('bad words become cute emojis, and the same word always gets the same one', async ({ page, game }) => {
+    await game.open();
+    const r = await page.evaluate(() => ({
+      cute: CHAT_CUTE,
+      a: cleanChat('stupid'),
+      b: cleanChat('STUPID'),
+      c: cleanChat('stuuupid'),
+      d: cleanChat('s.t.u.p.i.d'),
+      e: cleanChat('fuck'),
+      f: cleanChat('fuck you stupid')
+    }));
+    expect(r.cute).not.toContain('🙊');
+    expect(r.cute).toContain(r.a);
+    expect([r.b, r.c, r.d]).toEqual([r.a, r.a, r.a]);
+    expect(r.f).toBe(`${r.e} you ${r.a}`);
+    // cleaning twice (sender, then receiver) gives the same result
+    expect(
+      await page.evaluate(t => cleanChat(cleanChat(t)) === cleanChat(t), 'what the f.u.c.k, you are dumb')
+    ).toBe(true);
+  });
 });
 
 test('best friends on a cloud visit can chat both ways', async ({ game, newPhone }) => {
@@ -71,12 +152,12 @@ test('best friends on a cloud visit can chat both ways', async ({ game, newPhone
   await expect(ada.locator('#bChat .badge')).toBeHidden();
   await say(ada, 'hi Ben, you are dumb 555 123 4567');
   // the host's phone cleaned it before sending; Ben's phone cleans again on arrival
-  await expect
-    .poll(() => lastChat(ben))
-    .toMatchObject({ id: 'host', name: 'Ada', x: 'hi Ben, you are 🙊 🚫' });
+  await expect.poll(() => lastChat(ben)).toMatchObject({ id: 'host', name: 'Ada' });
+  const got = await lastChat(ben);
+  expect(matches(got.x, 'hi Ben, you are ● 🚫', await ben.evaluate(() => CHAT_CUTE))).toBe(true);
   await expect(ben.locator('#bChat .badge')).toHaveText('1');
   await ben.locator('#bChat').click();
-  await expect(ben.locator('#chatlog .cl').last()).toHaveText('Ada hi Ben, you are 🙊 🚫');
+  await expect(ben.locator('#chatlog .cl').last()).toHaveText('Ada ' + got.x);
 });
 
 test('messages from a modified phone are still cleaned and length-limited on arrival', async ({
@@ -87,7 +168,9 @@ test('messages from a modified phone are still cleaned and length-limited on arr
   // skip Ben's own filter and send raw text straight down the connection
   // (the 60-character cut happens before the word filter)
   await ben.evaluate(() => MP.conn.send({ t: 'chat', x: 'FUCK <b>you</b> ' + 'x'.repeat(100) }));
-  await expect.poll(async () => (await lastChat(ada)).x).toBe('🙊 <b>you</b> ' + 'x'.repeat(44));
+  await expect.poll(async () => (await lastChat(ada)).x.endsWith('<b>you</b> ' + 'x'.repeat(44))).toBe(true);
+  const cute = await ada.evaluate(() => CHAT_CUTE);
+  expect(matches((await lastChat(ada)).x, '● <b>you</b> ' + 'x'.repeat(44), cute)).toBe(true);
   await ada.locator('#bChat').click();
   // shown as text, not HTML
   await expect(ada.locator('#chatlog b', { hasText: 'you' })).toHaveCount(0);
