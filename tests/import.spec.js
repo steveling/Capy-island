@@ -76,6 +76,8 @@ test.describe('from another phone (cloud)', () => {
     // (Ben's save is from before the museum update, so the what's-new screen shows first)
     await expect(page.locator('#card h2')).toHaveText(/Something new/);
     await page.locator('#card > .row button').last().click();
+    // ...then the what's-new splash, which an island from before it hasn't seen either
+    await page.getByRole('button', { name: "Let's play! 🩷" }).click();
     // and switching back to Ada works as usual
     await page.locator('#who').click();
     await page.locator('.plb', { hasText: 'Ada' }).click();

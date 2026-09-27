@@ -44,6 +44,8 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
+// the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
+const NEWS_V = 5;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 function newSave() {
   const neigh = {};
@@ -85,6 +87,7 @@ function newSave() {
     wish: { n: 0 },
     gotTools: 0,
     v4news: 1,
+    news: NEWS_V,
     emotes: [0, 1, 2, 3, 4, 5]
   };
 }
@@ -96,7 +99,9 @@ if (!S || !S.neigh) S = newSave();
 let v4news = false;
 (function migrate() {
   const d = newSave();
-  const old = S.v4news === undefined && !!S.name;
+  const old = S.v4news === undefined && !!S.name,
+    // an island from before the news version existed hasn't seen the v5 splash yet
+    newsBefore = typeof S.news === 'number' ? S.news : S.name ? 4 : NEWS_V;
   if (S.color === undefined) {
     if (S.vcolor) S.vcolorOld = S.vcolor;
     S.color = 'pink';
@@ -157,6 +162,7 @@ let v4news = false;
     S.v4news = 1;
     v4news = true;
   }
+  S.news = newsBefore;
 })();
 function save() {
   if (VIS() || restoring) return;

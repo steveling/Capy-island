@@ -67,8 +67,15 @@ function capyBoot() {
   if (!S.name) welcome();
   else {
     plSync();
-    if (!plMe().pw) pwCreate(v4news ? showNews : null);
-    else if (v4news) showNews();
+    // one after another: pick a secret emoji (if needed), the museum news (very old islands), what's new
+    const news = () => {
+      if (v4news) {
+        v4news = false;
+        showNews(news);
+      } else if (S.news < NEWS_V) showWhatsNew();
+    };
+    if (!plMe().pw) pwCreate(news);
+    else news();
     if (newDay()) {
       hud();
       setTimeout(
