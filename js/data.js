@@ -648,17 +648,31 @@ const ids = k => Object.keys(ITEMS).filter(i => ITEMS[i].k === k);
 const BUYABLE = ids('furn').filter(i => !ITEMS[i].gift),
   PRESENT_ONLY = ['cupcake', 'doll', 'trophy', 'sparkle', 'pinata', 'crystal', 'ufo'],
   GIFT_POOL = BUYABLE.concat(PRESENT_ONLY);
-function weighted(k) {
+// what's around to catch right now, with weights. Fish a neighbour has asked for (and not been given yet) are a
+// bit easier to catch, so their wishes don't take forever.
+const WANT_BOOST = 1.5;
+function wantedNow() {
+  return new Set(
+    NEIGH.map(n => S.neigh[n.id])
+      .filter(q => q && q.req && !q.done)
+      .map(q => q.req)
+  );
+}
+function catchWeights(k) {
   const d = clock();
   let l = ids(k).filter(i => ITEMS[i].w && avail(i, d));
   if (!l.length) l = ids(k).filter(i => ITEMS[i].w);
-  let t = l.reduce((s, i) => s + ITEMS[i].w, 0),
-    r = Math.random() * t;
-  for (const i of l) {
-    r -= ITEMS[i].w;
+  const want = k === 'fish' ? wantedNow() : new Set();
+  return l.map(i => [i, ITEMS[i].w * (want.has(i) ? WANT_BOOST : 1)]);
+}
+function weighted(k) {
+  const l = catchWeights(k);
+  let r = Math.random() * l.reduce((s, [, w]) => s + w, 0);
+  for (const [i, w] of l) {
+    r -= w;
     if (r <= 0) return i;
   }
-  return l[0];
+  return l[0][0];
 }
 // capybara colours: b=body l=light d=dark s=snout
 const CAPY = {

@@ -188,7 +188,7 @@ window.donate = k => {
   if (!takeItem(k)) return;
   S.mu[k] = S.day || 1;
   newCase = k;
-  SND.yay();
+  SND.hoot();
   msay = pick(DONATE_LINES)
     .replace('{n}', esc(it.n) + ' ' + ie(k))
     .replace('{name}', esc(S.name));
@@ -227,8 +227,7 @@ function museumRewards(kind) {
   return out;
 }
 function celebrate(rs) {
-  SND.yay();
-  setTimeout(() => SND.yay(), 380);
+  SND.fanfare();
   const big = rs.some(r => r.big),
     who = rs[0].who || 'Professor Hoot';
   let h = `<div class="confetti">${Array.from({ length: 20 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i % 7) * 0.1}s;background:${['#ff8cc6', '#ffd84d', '#8fd3f0', '#b48cff', '#5fd3a8'][i % 5]}"></i>`).join('')}</div><h2>${big ? '🏆 Hooray! 🏆' : '🎉 Thank you! 🎉'}</h2>`;
@@ -261,7 +260,8 @@ window.identify = () => {
     got.push(id);
   }
   if (!got.length) return;
-  SND.yay();
+  SND.chisel();
+  setTimeout(SND.sparkle, 380);
   save();
   MV = 'fossil';
   mwho = 'Professor Hoot';
@@ -371,6 +371,7 @@ window.buyDrink = id => {
   hud();
   S.drink = { id, day: S.day };
   SND.coin();
+  setTimeout(SND.pour, 250);
   let stamp = false,
     card = null;
   if (S.cafe.last !== S.day) {
@@ -432,7 +433,7 @@ window.buyArt = id => {
   S.coins -= ITEMS[id].buy;
   st.splice(i, 1);
   const first = addItem(id);
-  SND.yay();
+  SND.coin();
   hud();
   save();
   openArt();
@@ -480,7 +481,7 @@ window.setLook = (c, a) => {
   if (c && CAPY[c]) S.color = c;
   if (a && ACCS[a] && S.accs[a]) S.acc = a;
   S.vcolor = BASE_COLORS.includes(S.color) ? S.color : 'pink';
-  SND.pop();
+  SND.sparkle();
   save();
   if (MP.role === 'host') broadcast({ t: 'look', id: 'host', color: myColor(), acc: myAcc() });
   if (MP.dockOpen) openDock();

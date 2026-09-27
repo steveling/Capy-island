@@ -316,7 +316,7 @@ function paintIsland() {
 }
 
 // ---------- 3D-ish objects ----------
-function drawCapy(x, y, face, moving, walk, col, stack, soak, acc) {
+function drawCapy(x, y, face, moving, walk, col, stack, soak, acc, asleep) {
   const C = CAPY[col] || CAPY.pink;
   ctx.save();
   ctx.translate(x, y);
@@ -351,8 +351,18 @@ function drawCapy(x, y, face, moving, walk, col, stack, soak, acc) {
   ell(28, -30 + b, 9, 9, C.s);
   ell(27 + L * 2, -33 + b, 4, 2.6, 'rgba(255,255,255,.35)');
   ell(33, -32 + b, 3.2, 2.4, '#7a2d4f');
-  ell(21, -37 + b, 2.6, 2.8, '#3a1426');
-  ell(22, -38 + b, 0.9, 0.9, '#fff');
+  if (asleep) {
+    // closed eye: a sleepy little curve
+    ctx.strokeStyle = '#3a1426';
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(21, -38 + b, 3, 0.25 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+  } else {
+    ell(21, -37 + b, 2.6, 2.8, '#3a1426');
+    ell(22, -38 + b, 0.9, 0.9, '#fff');
+  }
   ell(12, -44 + b, 4, 3.2, C.d);
   ell(12.5, -44.5 + b, 2, 1.5, shade(C.d, -0.2));
   ell(19, -29 + b, 3.8, 2.4, 'rgba(255,70,140,.55)');

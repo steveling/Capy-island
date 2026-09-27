@@ -22,7 +22,7 @@ function doAct(a) {
       S.trees[a.i] = 0;
       const first = addItem(t.f, n);
       burst(t.x, t.y - 60, ITEMS[t.f].e, n + 2);
-      SND.pop();
+      SND.pick();
       const h = S.stack.length;
       toast(
         `You picked ${n} ${ITEMS[t.f].n}! ${ITEMS[t.f].e}` +
@@ -79,17 +79,18 @@ function catchBug(b) {
     bugs.splice(bugs.indexOf(b), 1);
     const first = addItem(b.t);
     burst(b.x, b.y, '✨', 6);
-    SND.yay();
+    SND.bug();
     toast(`You caught a ${it.n}! ${ie(b.t)}` + (first ? '<br>✨ New in your book!' : ''));
     save();
   } else {
     b.flee = 1.2;
+    SND.net();
     SND.oops();
     toast(`Oh no, the ${it.n} got away! Try again!`);
   }
 }
 function openPresent(p) {
-  SND.yay();
+  SND.present();
   burst(p.x, p.y, '🎉', 8);
   if (Math.random() < 0.55) {
     const c = pick([100, 150, 200, 250, 300]);
@@ -113,7 +114,7 @@ function openFPresent(i) {
   const id = ITEMS[p.item] && ITEMS[p.item].k === 'furn' ? p.item : pick(GIFT_POOL),
     first = addItem(id),
     pp = posAt(p.a);
-  SND.yay();
+  SND.present();
   burst(pp.x, pp.y, '💝', 8);
   save();
   modal(
@@ -129,6 +130,7 @@ function hearts(f) {
   return s;
 }
 function openTalk(n, override) {
+  voice(n.id);
   if (VIS()) {
     talking = n;
     const T = $('#talk');
@@ -219,7 +221,7 @@ function give(n) {
       s.g.push(g);
       addItem(g);
       msg += `<br>And I made you a present because we're friends: ${ITEMS[g].n} ${ITEMS[g].e}!`;
-      SND.yay();
+      SND.heart();
     }
   });
   openTalk(n, msg);
@@ -239,7 +241,7 @@ function enterSpring() {
   P.tx = P.x;
   P.ty = P.y;
   P.face = 1;
-  SND.pop();
+  SND.splash();
   burst(P.x, P.y - 20, '💦', 5);
   openSpring();
 }
@@ -298,7 +300,7 @@ function openSpring(msg) {
 function tossYuzu() {
   if (VIS() || !takeItem('yuzu')) return;
   S.yuzu++;
-  SND.pop();
+  SND.plop();
   burst(SPRING.x, SPRING.y - 10, '💛', 4);
   save();
   openSpring(
@@ -321,7 +323,7 @@ window.springSlot = i => {
   if (id) {
     S.spring[i] = null;
     addItem(id);
-    SND.pop();
+    SND.lift();
     save();
     decoSpring();
     return;
@@ -338,83 +340,141 @@ window.springSlot = i => {
 window.placeSpring = (i, k) => {
   if (VIS() || !takeItem(k)) return;
   S.spring[i] = k;
-  SND.pop();
+  SND.thunk();
   save();
   decoSpring();
 };
 
 // ---------- FISHING ----------
 let F = null;
+// how one cast plays out: 0-3 fake-out nibbles at random moments, then the bite somewhere between 1.5 and 6.5
+// seconds (the average of two random numbers, so usually around 3-5), and a bite window that varies a little too
+function fishPlan(r = Math.random) {
+  const bite = 1.5 + (5 * (r() + r())) / 2,
+    nibbles = [];
+  for (let i = Math.floor(r() * 4); i > 0; i--) if (bite > 1.2) nibbles.push(0.6 + r() * (bite - 1));
+  nibbles.sort((a, b) => a - b);
+  return { nibbles: nibbles.filter((t, i) => !i || t - nibbles[i - 1] > 0.3), bite, window: 1.4 + r() * 0.5 };
+}
+function fishLater(ms, fn) {
+  const t = setTimeout(() => {
+    if (F && F.ts.includes(t)) fn();
+  }, ms);
+  F.ts.push(t);
+}
+function fishStop() {
+  if (F) F.ts.forEach(clearTimeout);
+  F = null;
+}
 function startFish() {
   if (VIS()) return;
   busy = true;
   closeTalk();
   $('#fish').classList.remove('hidden');
   fishWait();
+  requestAnimationFrame(fishDraw);
 }
+const bob = t => ($('#bobber').style.transform = t);
 function fishWait() {
-  clearTimeout(F && F.t);
-  F = { st: 'wait' };
+  const bend = F ? F.bend : 0; // the rod eases back rather than snapping straight
+  fishStop();
+  const plan = fishPlan(),
+    CAST = 450; // ms for the bobber to fly out from the rod tip
+  F = { st: 'wait', ts: [], plan, bend };
   $('#fmsg').textContent = 'Wait for the fish to bite...';
   $('#fbtn').classList.remove('bite');
-  $('#bobber').style.transform = 'translate(-50%,-50%)';
-  const nib = () => {
-    if (!F || F.st !== 'wait') return;
-    $('#bobber').style.transform = 'translate(-50%,-40%)';
-    setTimeout(() => {
-      if (F && F.st === 'wait') $('#bobber').style.transform = 'translate(-50%,-50%)';
-    }, 150);
-  };
-  setTimeout(nib, rnd(700, 1400));
-  F.t = setTimeout(
-    () => {
-      F.st = 'bite';
-      $('#fmsg').textContent = 'SPLASH! Tap now! 🎣';
-      $('#fbtn').classList.add('bite');
-      $('#bobber').style.transform = 'translate(-50%,-10%) scale(.8)';
-      beep([[300, 0.1]]);
-      F.t = setTimeout(() => {
-        if (F && F.st === 'bite') {
-          F.st = 'miss';
-          $('#fmsg').textContent = 'It swam away... try again!';
-          $('#fbtn').classList.remove('bite');
-          F.t = setTimeout(fishWait, 1300);
-        }
-      }, 1600);
-    },
-    rnd(1800, 4500)
+  $('#bobber').textContent = '🔴';
+  bob('translate(-50%,-50%)');
+  // cast: the bobber flies from the rod tip to the middle of the water
+  const w = $('#fwater'),
+    b = $('#bobber');
+  b.style.setProperty('--cx', w.clientWidth * 0.3 + 'px');
+  b.style.setProperty('--cy', -w.clientHeight * 0.36 + 'px');
+  b.classList.remove('cast');
+  void b.offsetWidth;
+  b.classList.add('cast');
+  SND.cast();
+  fishLater(CAST, () => {
+    b.classList.remove('cast');
+    SND.plop();
+  });
+  plan.nibbles.forEach(t =>
+    fishLater(CAST + t * 1000, () => {
+      if (F.st !== 'wait') return;
+      bob('translate(-50%,-38%)');
+      SND.nibble();
+      fishLater(150, () => F.st === 'wait' && bob('translate(-50%,-50%)'));
+    })
   );
+  fishLater(CAST + plan.bite * 1000, () => {
+    F.st = 'bite';
+    $('#fmsg').textContent = 'SPLASH! Tap now! 🎣';
+    $('#fbtn').classList.add('bite');
+    bob('translate(-50%,-10%) scale(.8)');
+    SND.bite();
+    fishLater(plan.window * 1000, () => {
+      if (F.st !== 'bite') return;
+      F.st = 'miss';
+      $('#fmsg').textContent = 'It swam away... try again!';
+      $('#fbtn').classList.remove('bite');
+      bob('translate(-50%,-50%)');
+      SND.away();
+      fishLater(1300, fishWait);
+    });
+  });
 }
 function reel() {
   if (!F) return;
   if (F.st === 'wait') {
-    clearTimeout(F.t);
-    F.st = 'early';
+    fishStop();
+    F = { st: 'early', ts: [], bend: 0 };
     $('#fmsg').textContent = 'Too early! Wait for the splash.';
     SND.oops();
-    F.t = setTimeout(fishWait, 1300);
+    fishLater(1300, fishWait);
   } else if (F.st === 'bite') {
-    clearTimeout(F.t);
-    F.st = 'got';
+    fishStop();
+    F = { st: 'got', ts: [], bend: 1 };
     const id = weighted('fish'),
       it = ITEMS[id],
       first = addItem(id);
-    SND.yay();
+    SND.reel();
     $('#fbtn').classList.remove('bite');
     $('#fmsg').innerHTML = `You caught a ${it.n}! ${ie(id)}` + (first ? '<br>✨ New in your book!' : '');
     $('#bobber').innerHTML = ie(id);
+    bob('translate(-50%,-50%)');
     save();
-    F.t = setTimeout(() => {
-      $('#bobber').textContent = '🔴';
-      fishWait();
-    }, 1800);
+    fishLater(1800, fishWait);
   }
+}
+// the rod (coming in from the bottom-right corner) and its line down to the bobber, redrawn every frame so
+// the line follows the bobber as it's cast, nibbles and bites. On a bite the rod bends and the line pulls tight.
+function fishDraw() {
+  if ($('#fish').classList.contains('hidden')) return;
+  requestAnimationFrame(fishDraw);
+  const w = $('#fwater'),
+    W = w.clientWidth,
+    H = w.clientHeight,
+    r = w.getBoundingClientRect(),
+    b = $('#bobber').getBoundingClientRect();
+  if (F) F.bend += ((F.st === 'bite' || F.st === 'got' ? 1 : 0) - F.bend) * 0.25;
+  const k = F ? F.bend : 0,
+    base = [W + 6, H + 24],
+    tip = [W * 0.8 - k * 16, H * 0.14 + k * 30],
+    bx = b.left + b.width / 2 - r.left - w.clientLeft,
+    by = b.top - r.top - w.clientTop + b.height * 0.28,
+    sag = 34 * (1 - k) + 4;
+  const q = (a, c, e) => `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${e[0]},${e[1]}`;
+  $('#rodline').setAttribute('d', q(tip, [(tip[0] + bx) / 2, (tip[1] + by) / 2 + sag], [bx, by]));
+  $('#rodpole').setAttribute('d', q(base, [W * 0.97, H * 0.5 + k * 12], tip));
+  $('#rodhandle').setAttribute('d', q(base, [W * 0.99, H * 0.9], [W * 0.95, H * 0.72]));
+  const reelAt = [W * 0.955, H * 0.76];
+  $('#rodreel').setAttribute('cx', reelAt[0]);
+  $('#rodreel').setAttribute('cy', reelAt[1]);
 }
 $('#fbtn').onclick = reel;
 $('#fwater').onclick = reel;
 $('#fcancel').onclick = () => {
-  clearTimeout(F && F.t);
-  F = null;
+  fishStop();
   busy = false;
   $('#fish').classList.add('hidden');
   $('#bobber').textContent = '🔴';

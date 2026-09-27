@@ -405,7 +405,7 @@ function plotAct(i) {
     p.w = S.day;
     toolFx = { id: 'can', t: 1.1 };
     burst(G.x, G.y - 16, '💧', 6);
-    SND.pop();
+    SND.water();
     save();
     toast(
       p.st >= 3
@@ -428,7 +428,7 @@ window.plant = (i, k) => {
   closeModal();
   if (VIS() || S.garden[i] || !takeItem(k)) return;
   S.garden[i] = { s: k === 'seed_rose' ? 'rose' : 'tulip', c: pick(['red', 'white', 'yellow']), st: 0, w: 0 };
-  SND.pop();
+  SND.plant();
   burst(GARDEN[i].x, GARDEN[i].y - 8, '🌱', 4);
   save();
   toast('You planted a seed! 🌱<br>Water it with your watering can 💧', 3000);
@@ -440,7 +440,7 @@ window.pickFlower = i => {
   const id = 'fl_' + p.s + '_' + p.c,
     first = addItem(id);
   S.garden[i] = null;
-  SND.yay();
+  SND.pick();
   save();
   toast(`You picked a ${ITEMS[id].n}! ${ie(id)}` + (first ? '<br>✨ New in your book!' : ''));
 };
@@ -460,11 +460,11 @@ function digAct(i) {
   S.dig.splice(i, 1);
   toolFx = { id: 'shovel', t: 1 };
   burst(d.x, d.y, '🟫', 5);
-  SND.pop();
+  SND.dig();
   addItem('fossilq');
   save();
   setTimeout(() => {
-    SND.yay();
+    SND.sparkle();
     burst(d.x, d.y - 10, '✨', 6);
   }, 250);
   toast('You dug up a Mystery Fossil! 🦴<br>Take it to Professor Hoot at the museum! 🏛️', 3200);
@@ -477,7 +477,7 @@ function beachAct(i) {
   const first = addItem(b.t),
     p = beachPos(b.a);
   burst(p.x, p.y - 8, '✨', 5);
-  SND.pop();
+  SND.sparkle();
   save();
   toast(`You found a ${ITEMS[b.t].n}! ${ie(b.t)}` + (first ? '<br>✨ New in your book!' : ''));
 }
@@ -496,7 +496,8 @@ function poolAct(i) {
   const first = addItem(t),
     p = POOLS[i];
   burst(p.x, p.y - 6, '💦', 6);
-  SND.yay();
+  SND.splash();
+  setTimeout(SND.sparkle, 200);
   save();
   toast(`You found a ${ITEMS[t].n}! ${ie(t)}` + (first ? '<br>✨ New in your book!' : ''));
 }
@@ -525,7 +526,7 @@ function popBalloon() {
   BAL = null;
   burst(p.x, p.y - 58, '🎈', 5);
   burst(p.x, p.y - 40, '✨', 6);
-  SND.pop();
+  SND.balloon();
   openPresent(p);
   const c = $('#card h2');
   if (c) c.textContent = '🎈 Pop! A present!';
@@ -546,7 +547,7 @@ function makeWish() {
   STAR.hit = true;
   S.wish.n = (S.wish.n | 0) + 1;
   burst(STAR.x, STAR.y, '✨', 8);
-  SND.yay();
+  SND.wish();
   save();
   toast(
     S.wish.n <= 5
@@ -1007,18 +1008,97 @@ function pushV4(ents) {
   }
   if (ONV() && MP.offline && MP.island) ents.push([NAP.y, drawNapper]);
 }
-// offline snapshot visit: the island owner is napping by her house, in her own colour + accessory
-const NAP = { x: HOUSE.x + 86, y: HOUSE.y + 44 };
+// offline snapshot visit: the island owner is napping in a bed by their house, in their own colour +
+// accessory, tucked under a blanket that rises and falls, with Zzz floating up and a snore now and then
+const NAP = { x: HOUSE.x + 92, y: HOUSE.y + 48 };
+let napT = 1.5; // seconds to the next snore
+const napBreath = () => Math.sin(time * 1.7);
 function drawNapper() {
   const I = MP.island,
     x = NAP.x,
-    y = NAP.y + Math.sin(time * 1.6) * 0.8;
-  drawCapy(x, y, -1, false, 0, I.color, [], false, I.acc);
-  const t = (time * 0.7) % 2;
-  ctx.globalAlpha = Math.max(0, 1 - t / 2);
-  emoji('💤', x + 24 + t * 8, y - 66 - t * 16, 16 + t * 4);
+    y = NAP.y,
+    br = napBreath();
+  shadow(x + 4, y + 2, 62, 10);
+  // legs, headboard (head end on the left) and footboard
+  ctx.fillStyle = '#9a6337';
+  [-44, 42].forEach(lx => ctx.fillRect(x + lx, y - 8, 5, 10));
+  rr(x - 54, y - 52, 12, 50, 5);
+  ctx.fillStyle = vgrad(y - 52, y, '#c98b5b', '#9a6337');
+  ctx.fill();
+  emoji('💗', x - 48, y - 40, 9);
+  rr(x + 44, y - 30, 10, 28, 4);
+  ctx.fillStyle = vgrad(y - 30, y, '#c98b5b', '#9a6337');
+  ctx.fill();
+  // mattress with a pink skirt, and a pillow
+  rr(x - 46, y - 22, 92, 16, 6);
+  ctx.fillStyle = '#fff6fb';
+  ctx.fill();
+  rr(x - 46, y - 12, 92, 8, 4);
+  ctx.fillStyle = '#ffb3d9';
+  ctx.fill();
+  ell(x - 30, y - 26, 15, 7.5, '#ffffff');
+  ell(x - 30, y - 24, 13, 4, 'rgba(230,150,190,.25)');
+  // the sleepy capy, head on the pillow
+  drawCapy(x - 8, y - 8, -1, false, 0, I.color, [], true, I.acc, true);
+  // blanket over the body, gently rising and falling with each breath
+  const top = y - 38 - br * 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x - 16, y - 24);
+  ctx.quadraticCurveTo(x - 10, top - 6, x + 12, top);
+  ctx.quadraticCurveTo(x + 40, top + 2, x + 46, y - 20);
+  ctx.lineTo(x + 46, y - 6);
+  ctx.lineTo(x - 18, y - 6);
+  ctx.closePath();
+  ctx.fillStyle = vgrad(top, y, '#ff9fcf', '#e56aa8');
+  ctx.fill();
+  // folded-over edge and polka dots
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - 14, y - 23);
+  ctx.quadraticCurveTo(x - 9, top - 3, x + 4, top - 1);
+  ctx.stroke();
+  [
+    [6, 10],
+    [22, 6],
+    [34, 14],
+    [14, 20],
+    [-4, 16]
+  ].forEach(([dx, dy]) => ell(x + dx, top + dy, 2.2, 1.6, 'rgba(255,255,255,.8)'));
+  // Zzz floating up from the pillow, each one growing, drifting and fading, one after another
+  for (let i = 0; i < 3; i++) {
+    const t = (time * 0.45 + i / 3) % 1,
+      zx = x - 34 + t * 26 + Math.sin(t * 6 + i) * 5,
+      zy = y - 50 - t * 38;
+    ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    ctx.font = `900 ${Math.round(11 + t * 12)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText(i === 2 ? 'z' : 'Z', zx, zy);
+    ctx.fillStyle = '#8a6fd1';
+    ctx.fillText(i === 2 ? 'z' : 'Z', zx, zy);
+  }
   ctx.globalAlpha = 1;
-  nameTag(x, y + capyTop(0, false) - 8, I.name + ' 💤', I.color);
+  nameTag(x - 6, y - 112, I.name + ' 💤', I.color);
+}
+// how loud a snore is where I'm standing: louder close to the bed, silent far away
+function napVolume() {
+  return Math.max(0, 1 - dist(P.x, P.y, NAP.x, NAP.y) / 700);
+}
+// called every frame: a snore every 3-4.5 seconds while visiting a napping friend
+function napTick(dt) {
+  if (!(ONV() && MP.offline && MP.island) || document.hidden) {
+    napT = 1.5;
+    return;
+  }
+  napT -= dt;
+  if (napT > 0) return;
+  napT = rnd(3, 4.5);
+  const v = napVolume();
+  if (v > 0.05) SND.snore(v);
 }
 function drawV4Top(vx0, vy0, vx1, vy1) {
   if (toolFx) {

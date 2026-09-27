@@ -38,7 +38,7 @@ window.rollName = () => {
   let n = funName();
   while (NAMES.length > 1 && n === i.value) n = funName();
   i.value = n;
-  SND.pop();
+  SND.dice();
 };
 function welcome() {
   modal(
