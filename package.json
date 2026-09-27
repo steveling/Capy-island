@@ -5,8 +5,9 @@
   "scripts": {
     "start": "node tests/server.js",
     "test": "playwright test",
-    "lint": "prettier --check .",
-    "format": "prettier --write ."
+    "lint": "prettier --check . && node scripts/stamp.js --check",
+    "format": "prettier --write .",
+    "stamp": "node scripts/stamp.js"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",

@@ -18,7 +18,7 @@ function gameOn(page) {
     async open({ cloud = false, storage = {} } = {}) {
       await page.context().route(/^https?:\/\/(?!localhost)/, r => r.abort());
       if (!cloud)
-        await page.route('**/js/config.js', r =>
+        await page.route('**/js/config.js?*', r =>
           r.fulfill({
             contentType: 'text/javascript',
             body: "const SUPABASE_URL = '';\nconst SUPABASE_ANON_KEY = '';\n"

@@ -7,9 +7,29 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Capy Island</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/gate.css">
-<script src="js/config.js"></script>
+<script>
+// If a script fails while the game starts, the browser has probably mixed new and old cached files (GitHub
+// Pages lets it reuse them for 10 minutes). Reload once from a fresh address, which skips the cached page and
+// so gets every file of the new version. At most once a minute, so a real bug can't cause a reload loop.
+window.capyBooting = true;
+addEventListener('error', function () {
+  if (!window.capyBooting) return;
+  window.capyBooting = false;
+  try {
+    var last = +sessionStorage.getItem('capyIsland.fresh') || 0;
+    if (Date.now() - last < 60000) return;
+    sessionStorage.setItem('capyIsland.fresh', String(Date.now()));
+  } catch (e) {
+    return;
+  }
+  var q = new URLSearchParams(location.search);
+  q.set('fresh', Date.now().toString(36));
+  location.replace(location.pathname + '?' + q + location.hash);
+});
+</script>
+<link rel="stylesheet" href="css/style.css?v=7197a84846">
+<link rel="stylesheet" href="css/gate.css?v=38e1c623d7">
+<script src="js/config.js?v=c3075854f9"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" async></script>
 </head>
 <body>
@@ -35,24 +55,24 @@
 <div id="museum" class="hidden"></div>
 <div id="modal" class="hidden"><div class="card" id="card"></div></div>
 <div id="quit" class="hidden" role="alertdialog" aria-label="Leave Capy Island?"><div class="card"><h2>🏝️ Leave Capy Island?</h2><div style="text-align:center;font-size:54px">🥺</div><p class="c" style="font-size:17px">Your island is saved.<br>Come back soon!</p><div class="row"><button class="btn" onclick="quitStay()">Keep playing! 🩷</button><button class="btn white" onclick="quitLeave()">Leave 👋</button></div></div></div>
-<script src="js/core.js"></script>
-<script src="js/sound.js"></script>
-<script src="js/data.js"></script>
-<script src="js/save.js"></script>
-<script src="js/players.js"></script>
-<script src="js/world.js"></script>
-<script src="js/input.js"></script>
-<script src="js/actions.js"></script>
-<script src="js/modals.js"></script>
-<script src="js/draw.js"></script>
-<script src="js/render.js"></script>
-<script src="js/multiplayer.js"></script>
-<script src="js/places.js"></script>
-<script src="js/museum.js"></script>
-<script src="js/grownups.js"></script>
-<script src="js/cloud.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/gate.js"></script>
-<script src="js/main.js"></script>
+<script src="js/core.js?v=d90ae909f9"></script>
+<script src="js/sound.js?v=e82bcd0d5c"></script>
+<script src="js/data.js?v=b5cacd0672"></script>
+<script src="js/save.js?v=d6d79ed277"></script>
+<script src="js/players.js?v=a7d53802b9"></script>
+<script src="js/world.js?v=c19dd27a3d"></script>
+<script src="js/input.js?v=5b829713da"></script>
+<script src="js/actions.js?v=ae2393c12c"></script>
+<script src="js/modals.js?v=eddd1e129a"></script>
+<script src="js/draw.js?v=01375bd172"></script>
+<script src="js/render.js?v=1f8578aabf"></script>
+<script src="js/multiplayer.js?v=fa4b895b4c"></script>
+<script src="js/places.js?v=da42cdc569"></script>
+<script src="js/museum.js?v=de07407c56"></script>
+<script src="js/grownups.js?v=0132d90bcb"></script>
+<script src="js/cloud.js?v=c087292baa"></script>
+<script src="js/chat.js?v=a50fff4dcb"></script>
+<script src="js/gate.js?v=bd850e1f91"></script>
+<script src="js/main.js?v=210b490b29"></script>
 </body>
 </html>
