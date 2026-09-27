@@ -64,7 +64,30 @@ input.name{font-size:22px;font-weight:800;text-align:center;border:3px solid #ff
 #floor{display:grid;grid-template-columns:repeat(5,1fr);background:repeating-conic-gradient(#fff1f7 0 25%,#ffdcec 0 50%) 0 0/25% 33.33%}
 #floor .slot{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:38px;border:1px dashed rgba(217,112,159,.25)}
 #score{margin-top:10px;font-weight:900;color:#d94b90;font-size:18px}
+#mppill{position:fixed;top:calc(58px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6;font-size:15px;padding:5px 12px;white-space:nowrap;pointer-events:auto;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+body.mp #toast{top:calc(104px + env(safe-area-inset-top))}
+#emobar{position:fixed;left:0;right:0;bottom:calc(96px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:8px;z-index:24}
+#emobar button{width:54px;height:54px;border-radius:18px;border:3px solid #ff8cc6;background:#fff;font-size:30px;box-shadow:0 3px 0 #e56aa8;padding:0;font-family:inherit}
+#emobar button:active{transform:translateY(2px);box-shadow:0 1px 0 #e56aa8}
+.code{font-size:46px;font-weight:900;letter-spacing:8px;text-align:center;color:#d94b90;background:#fff;border:4px dashed #ff8cc6;border-radius:20px;padding:6px 0 6px 8px;margin:6px 0;font-family:inherit}
+input.code{width:100%;text-transform:uppercase;outline:none}
+input.code::placeholder{color:#f3c2da}
+.big{display:block;width:100%;font-size:21px;padding:14px;margin-top:10px}
+.sws{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
+.sw{width:42px;height:42px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 3px #ffd0e6;padding:0}
+.sw.on{box-shadow:0 0 0 4px #d94b90}
+.dot{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:6px;border:2px solid #fff;box-shadow:0 0 0 2px #ffd0e6}
+.note{background:#fff;border:3px dashed #ffd0e6;border-radius:16px;padding:10px;text-align:center;font-weight:700;margin-top:10px}
+.card h3{margin:14px 0 6px;color:#d94b90;text-align:center}
+.card p.c{text-align:center;font-weight:700}
+.fly{animation:fly 1.2s ease-in-out infinite alternate}
+@keyframes fly{from{transform:translate(-20px,6px) rotate(-6deg)}to{transform:translate(20px,-6px) rotate(6deg)}}
+#gear{position:fixed;top:calc(62px + env(safe-area-inset-top));right:10px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.7);border:3px solid #ffd0e6;font-size:19px;z-index:6;padding:0;color:#c2427f;display:flex;align-items:center;justify-content:center;touch-action:none;transition:background 1.5s linear,transform .2s}
+#gear.hold{background:#ff8cc6;transform:scale(1.15)}
+textarea.bk{width:100%;height:80px;border:3px solid #ffd0e6;border-radius:14px;padding:8px;font-size:12px;font-family:monospace;color:#7a2a55;user-select:text;-webkit-user-select:text}
+.card label.btn{display:inline-block;cursor:pointer}
 </style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" async></script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -73,7 +96,12 @@ input.name{font-size:22px;font-weight:800;text-align:center;border:3px solid #ff
   <button id="bBag">🎒<span>Bag</span></button>
   <button id="bBook">📖<span>Book</span></button>
   <button id="bHome">🏠<span>Home</span></button>
+  <button id="bEmo" class="hidden">😊<span>Emote</span></button>
+  <button id="bLeave" class="hidden">✈️<span>Leave</span></button>
 </div>
+<div class="pill hidden" id="mppill"></div>
+<button id="gear" aria-label="Grown-ups (press and hold)">⚙️</button>
+<div id="emobar" class="hidden"></div>
 <div id="toast"></div>
 <div id="talk" class="hidden"><div class="tn"></div><div class="tt"></div><div class="th"></div><div class="row"></div></div>
 <div id="fish" class="hidden"><div id="fwater"><div id="ripple"></div><div id="bobber">🔴</div></div><div id="fmsg"></div><button class="btn" id="fbtn">Reel in!</button><button class="btn white" id="fcancel">Stop fishing</button></div>
@@ -82,12 +110,14 @@ input.name{font-size:22px;font-weight:800;text-align:center;border:3px solid #ff
 <script>
 "use strict";
 const $=s=>document.querySelector(s);
-const cv=$('#c'),ctx=cv.getContext('2d');
-let W,H,DPR,SCALE;
-function resize(){DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';SCALE=Math.max(.8,Math.min(1.7,Math.min(W,H)/400));}
+const cv=$('#c');let ctx=cv.getContext('2d');
+let W,H,DPR,SCALE,ER=1,AMB=null,WG=null,islReady=false;const EC=new Map();
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';SCALE=Math.max(.8,Math.min(1.7,Math.min(W,H)/400));
+ ER=Math.min(DPR*SCALE,3);EC.clear();AMB=null;WG=null;ctx=cv.getContext('2d');if(islReady)buildIsland()}
 addEventListener('resize',resize);resize();
 const EMO='"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif';
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)], dist=(a,b,c,d)=>Math.hypot(a-c,b-d);
+const esc=s=>String(s==null?'':s).replace(/[&<>"'`]/g,c=>'&#'+c.charCodeAt(0)+';');
 
 // ---------- DATA ----------
 const ITEMS={
@@ -99,8 +129,13 @@ const FURN=[['bed','🛏️','Cozy Bed',300],['chair','🪑','Wooden Chair',150]
  ['unicorn','🦄','Unicorn Plush',0,1],['carousel','🎠','Carousel',0,1],['fountain','⛲','Fountain',0,1],['rainbow','🌈','Rainbow',0,1],['crown','👑','Royal Crown',0,1],['cupcake','🧁','Cupcake Tower',0,1],['doll','🪆','Nesting Dolls',0,1],['trophy','🏆','Golden Trophy',0,1],['balloon','🎈','Balloons',0,1],['sparkle','💖','Sparkly Heart',0,1]];
 FURN.forEach(([id,e,n,p,g])=>ITEMS[id]={e,n,p:g?100:Math.round(p/4),buy:p,k:'furn',gift:!!g});
 const ids=k=>Object.keys(ITEMS).filter(i=>ITEMS[i].k===k);
-const BUYABLE=ids('furn').filter(i=>!ITEMS[i].gift), PRESENT_ONLY=['cupcake','doll','trophy','sparkle'];
+const BUYABLE=ids('furn').filter(i=>!ITEMS[i].gift), PRESENT_ONLY=['cupcake','doll','trophy','sparkle'], GIFT_POOL=BUYABLE.concat(PRESENT_ONLY);
 function weighted(k){const l=ids(k);let t=l.reduce((s,i)=>s+ITEMS[i].w,0),r=Math.random()*t;for(const i of l){r-=ITEMS[i].w;if(r<=0)return i}return l[0]}
+// capybara colours: b=body l=light d=dark s=snout
+const CAPY={pink:{n:'Pink',b:'#f39ac0',l:'#fcc6de',d:'#d9779f',s:'#e684ae'},caramel:{n:'Caramel',b:'#d9a066',l:'#f0c895',d:'#b37843',s:'#c98c55'},cocoa:{n:'Cocoa',b:'#a8795a',l:'#c99f80',d:'#80573b',s:'#946848'},cream:{n:'Cream',b:'#f1dfbf',l:'#fff4e0',d:'#d2b98f',s:'#e2cba4'},lavender:{n:'Lavender',b:'#c5a6ee',l:'#e0cefa',d:'#9f7fd0',s:'#b394e0'},mint:{n:'Mint',b:'#92dbbe',l:'#c2f0dd',d:'#68b898',s:'#7ccaab'},sky:{n:'Sky',b:'#9ac8f2',l:'#c7e2fb',d:'#709dd0',s:'#84b2e2'},peach:{n:'Peach',b:'#f6b08b',l:'#fdd3ba',d:'#d98c66',s:'#e89e78'}};
+const EMOTES=['👋','💖','😂','⭐','✨','🎵'], STAMPS=['🌸','🍊','🐾','⭐','🎀','🌈'];
+const WRAPS={pink:'#ff8cc6',mint:'#5fd3a8',sky:'#6fb6ff',sun:'#ffc83d',lilac:'#b48cff',cherry:'#ff5f73'};
+const CODE_ABC='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
 const CX=700,CY=560,SRX=630,SRY=475,GRX=560,GRY=412;
 function wob(t){return 1+.05*Math.sin(3*t)+.035*Math.sin(5*t+1.3)+.02*Math.sin(9*t+2)}
@@ -109,8 +144,12 @@ function angleOf(x,y){return Math.atan2((y-CY)/SRY,(x-CX)/SRX)}
 function edge(t,rx,ry,k){const w=wob(t)*k;return{x:CX+Math.cos(t)*rx*w,y:CY+Math.sin(t)*ry*w}}
 
 const HOUSE={x:560,y:370},SHOP={x:870,y:370},SPRING={x:700,y:700,rx:75,ry:42};
-const DECO_A=[Math.PI,-2.36,-1.57,-.79,.79,2.36],SOAK=[{x:710,y:692},{x:738,y:708},{x:695,y:716}];
+const DECO_A=[Math.PI,-2.36,-1.57,-.79,.79,2.36],SOAK=[{x:710,y:692},{x:738,y:708},{x:695,y:716}],VSOAK=[{x:664,y:690},{x:680,y:722},{x:722,y:684},{x:752,y:716}];
 function decoPos(i){const a=DECO_A[i];return{x:SPRING.x+Math.cos(a)*(SPRING.rx+26),y:SPRING.y+Math.sin(a)*(SPRING.ry+22)}}
+// seaplane dock ("Capy Air") on the south-west beach
+const DA=2.0,DOCK=(()=>{const p=edge(DA,SRX,SRY,.9);return{x:Math.round(p.x),y:Math.round(p.y)}})();
+const PIER=(()=>{const p=edge(DA,SRX,SRY,.95);return{x:Math.round(p.x),y:Math.round(p.y)-8,len:122}})();
+const PLANE={x:PIER.x+84,y:PIER.y+PIER.len-26},SIGN={x:DOCK.x-50,y:DOCK.y-4};
 const TREES=[[270,660,'orange'],[460,860,'yuzu'],[950,860,'orange'],[1130,660,'yuzu'],[300,410,'orange'],[1110,410,'yuzu'],[520,610,'yuzu'],[890,610,'orange']].map(([x,y,f])=>({x,y,f,shake:0}));
 const NEIGH=[
  {id:'mochi',e:'🐰',n:'Mochi',hx:410,hy:520,gifts:['unicorn','carousel'],lines:["Hop hop! What a lovely day!","I tried to count the clouds. I got to eleven!","You have fruit on your head again! Hee hee!","The hot spring is my favorite place on the whole island!"]},
@@ -118,21 +157,34 @@ const NEIGH=[
  {id:'puddle',e:'🦆',n:'Puddle',hx:700,hy:860,gifts:['balloon','fountain'],lines:["Quack! You're my best friend!","I love splashing in the hot spring!","Fishing is fun! Wait for the splash, then tap!","Capybaras are the calmest animals ever. Quack!"]}
 ].map(n=>Object.assign(n,{x:n.hx,y:n.hy,tx:n.hx,ty:n.hy,wait:rnd(1,4),face:1}));
 
+// ---------- MULTIPLAYER STATE (logic further below) ----------
+const MP={role:null,peer:null,conn:null,code:null,hostState:null,vis:new Map(),players:new Map(),emo:new Map(),island:null,me:null,acc:0,lastRx:0,dirty:false,islT:0,islJ:'',signed:false,gave:false,savedBugs:null,dockOpen:false,dockView:'main',to:null,tries:0,emoT:0};
+const VIS=()=>MP.role==='visitor'||MP.role==='connecting';
+const ONV=()=>MP.role==='visitor'&&!!MP.island; // rendering the HOST's island
+
 // ---------- SAVE ----------
 const KEY='capyIsland.v2';
-function newSave(){const neigh={};NEIGH.forEach(n=>neigh[n.id]={f:0,req:null,done:false,talked:false,g:[]});return{name:'',coins:200,bag:{},found:{},day:0,dayKey:'',trees:TREES.map(()=>3),presents:[],neigh,stock:[],room:Array(20).fill(null),x:700,y:490,stack:[],spring:Array(6).fill(null),yuzu:0,soakDay:''}}
+function newSave(){const neigh={};NEIGH.forEach(n=>neigh[n.id]={f:0,req:null,done:false,talked:false,g:[]});return{name:'',coins:200,bag:{},found:{},day:0,dayKey:'',trees:TREES.map(()=>3),presents:[],neigh,stock:[],room:Array(20).fill(null),x:700,y:490,stack:[],spring:Array(6).fill(null),yuzu:0,soakDay:'',vcolor:'caramel',guestbook:[],giftsPending:[],fpresents:[]}}
 let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.neigh)S=newSave();
-function save(){S.x=P.x;S.y=P.y;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+(function migrate(){const d=newSave();for(const k in d)if(S[k]===undefined)S[k]=d[k];
+ NEIGH.forEach(n=>{if(!S.neigh[n.id])S.neigh[n.id]=d.neigh[n.id]});
+ ['guestbook','giftsPending','fpresents','presents','stack','stock'].forEach(k=>{if(!Array.isArray(S[k]))S[k]=[]});
+ if(!Array.isArray(S.room))S.room=d.room;if(!Array.isArray(S.spring))S.spring=d.spring;if(!Array.isArray(S.trees)||S.trees.length!==TREES.length)S.trees=d.trees;
+ if(!CAPY[S.vcolor])S.vcolor='caramel';if(typeof S.x!=='number'||typeof S.y!=='number'){S.x=700;S.y=490}})();
+function save(){if(VIS()||restoring)return;S.x=P.x;S.y=P.y;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(MP.role==='host')MP.dirty=true}
 
 // ---------- STATE ----------
 const P={x:S.x,y:S.y,tx:S.x,ty:S.y,act:null,face:1,walk:0,moving:false,soak:false};
 let bugs=[],parts=[],busy=false,talking=null,bugTimer=0,time=0;
 const FLOWERS=[];(function(){let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<140;i++){const x=150+r()*1100,y=150+r()*830;if(norm(x,y,GRX,GRY)<.93&&dist(x,y,HOUSE.x,HOUSE.y-30)>80&&dist(x,y,SHOP.x,SHOP.y-30)>80&&dist(x,y,SPRING.x,SPRING.y)>115)FLOWERS.push({x,y,c:['#ff7fbf','#ffffff','#ffb3d9','#ff4f9e','#fff27a'][Math.floor(r()*5)],g:r()<.4})}})();
+// what the world shows: our island, or the host's island while visiting (read-only)
+const ISL=()=>ONV()?MP.island:S;
+const presList=()=>ONV()?MP.island.presents:S.presents, fpList=()=>ONV()?MP.island.fp:S.fpresents;
 
 function addItem(id,n=1){S.bag[id]=(S.bag[id]||0)+n;if(ITEMS[id].k==='fruit')for(let i=0;i<n;i++)S.stack.push(id);const first=!S.found[id];S.found[id]=1;return first}
 function takeItem(id,n=1){if((S.bag[id]||0)<n)return false;if(ITEMS[id].k==='fruit')for(let i=0;i<n;i++){const j=S.stack.lastIndexOf(id);if(j>=0)S.stack.splice(j,1)}S.bag[id]-=n;if(S.bag[id]<=0)delete S.bag[id];return true}
-function hud(){$('#coins').textContent='🪙 '+S.coins;$('#daypill').textContent='☀️ Day '+S.day}
+function hud(){$('#coins').textContent='🪙 '+S.coins;$('#daypill').textContent=ONV()?'✈️ Visiting':'☀️ Day '+S.day}
 let toastT;function toast(t,ms=2200){const e=$('#toast');e.innerHTML=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),ms)}
 function burst(x,y,e,n=6){for(let i=0;i<n;i++)parts.push({x,y,e,vx:rnd(-60,60),vy:rnd(-160,-80),life:1.2})}
 
@@ -142,12 +194,15 @@ const SND={yay:()=>beep([[660,.12],[880,.12],[1175,.25]]),pop:()=>beep([[520,.08
 
 // ---------- DAYS ----------
 function todayKey(){const d=new Date();return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()}
+function beachAngle(){let a;for(let i=0;i<30;i++){a=rnd(0,Math.PI*2);const d=Math.abs(((a-DA)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI);if(d>.38)break}return a}
 function randomReq(){const r=Math.random();if(r<.5)return pick(['orange','yuzu']);if(r<.75)return pick(['butterfly','ladybug','caterpillar','snail','ant','cricket','bee']);return pick(['fish','tropical','crab','shrimp'])}
-function newDay(force){const k=todayKey();if(!force&&S.dayKey===k)return false;let missed=1;if(S.dayKey&&!force)missed=Math.max(1,Math.round((new Date(k)-new Date(S.dayKey))/864e5));
+function newDay(force){if(VIS())return false;const k=todayKey();if(!force&&S.dayKey===k)return false;let missed=1;if(S.dayKey&&!force)missed=Math.max(1,Math.round((new Date(k)-new Date(S.dayKey))/864e5));
  S.dayKey=k;S.day++;S.trees=TREES.map(()=>3);S.yuzu=0;
  NEIGH.forEach(n=>{const s=S.neigh[n.id];s.req=randomReq();s.done=false;s.talked=false});
  const pool=BUYABLE.slice().sort(()=>Math.random()-.5);S.stock=pool.slice(0,4);
- const add=Math.min(3-S.presents.length,Math.min(missed,3));for(let i=0;i<add;i++)S.presents.push(rnd(0,Math.PI*2));
+ const add=Math.min(3-S.presents.length,Math.min(missed,3));for(let i=0;i<add;i++)S.presents.push(beachAngle());
+ // presents friends left while visiting yesterday arrive on the beach today
+ if(S.giftsPending.length){S.giftsPending.forEach(g=>S.fpresents.push({a:beachAngle(),from:g.from,c:g.c,item:g.item}));S.giftsPending=[];S.fpresents=S.fpresents.slice(-12)}
  bugs=[];for(let i=0;i<4;i++)spawnBug();save();return true}
 
 // ---------- BUGS ----------
@@ -157,11 +212,14 @@ function spawnBug(){const t=weighted('bug'),p=grassSpot();bugs.push({t,x:p.x,y:p
 // ---------- INPUT ----------
 const cam={x:P.x,y:P.y};
 function toWorld(sx,sy){return{x:(sx-W/2)/SCALE+cam.x,y:(sy-H/2)/SCALE+cam.y}}
-cv.addEventListener('pointerdown',ev=>{if(busy)return;if(talking){closeTalk();}if(P.soak)leaveSpring();const w=toWorld(ev.clientX,ev.clientY);tapWorld(w.x,w.y)});
+cv.addEventListener('pointerdown',ev=>{if(busy)return;$('#emobar').classList.add('hidden');if(talking){closeTalk();}if(P.soak)leaveSpring();const w=toWorld(ev.clientX,ev.clientY);tapWorld(w.x,w.y)});
+function dockHit(x,y){return dist(x,y,SIGN.x,SIGN.y-30)<42||(Math.abs(x-PIER.x)<26&&y>PIER.y-14&&y<PIER.y+PIER.len)||(Math.abs(x-PLANE.x)<62&&Math.abs(y-(PLANE.y-26))<36)}
 function tapWorld(x,y){
  for(const b of bugs)if(dist(x,y,b.x,b.y-10)<34){P.act={k:'bug',b};return}
- for(let i=0;i<S.presents.length;i++){const p=presentPos(i);if(dist(x,y,p.x,p.y-12)<34){P.act={k:'present',i};setT(p.x,p.y+8);return}}
+ const pl=presList();for(let i=0;i<pl.length;i++){const p=posAt(pl[i]);if(dist(x,y,p.x,p.y-12)<34){P.act={k:'present',i};setT(p.x,p.y+8);return}}
+ const fl=fpList();for(let i=0;i<fl.length;i++){const p=posAt(fl[i].a);if(dist(x,y,p.x,p.y-12)<34){P.act={k:'fpresent',i};setT(p.x,p.y+8);return}}
  for(const n of NEIGH)if(dist(x,y,n.x,n.y-22)<38){P.act={k:'talk',n};return}
+ if(dockHit(x,y)){P.act={k:'dock'};setT(DOCK.x,DOCK.y);return}
  {const sx=(x-SPRING.x)/(SPRING.rx+30),sy=(y-SPRING.y)/(SPRING.ry+26);if(sx*sx+sy*sy<1){P.act={k:'spring'};setT(SPRING.x-SPRING.rx-16,SPRING.y+6);return}}
  for(let i=0;i<TREES.length;i++){const t=TREES[i];if(dist(x,y,t.x,t.y-58)<48||dist(x,y,t.x,t.y-15)<22){P.act={k:'tree',i};setT(t.x+(P.x<t.x?-34:34),t.y+6);return}}
  if(Math.abs(x-HOUSE.x)<66&&y<HOUSE.y+6&&y>HOUSE.y-135){P.act={k:'house'};setT(HOUSE.x,HOUSE.y+22);return}
@@ -169,7 +227,8 @@ function tapWorld(x,y){
  if(norm(x,y,SRX,SRY)>1){const e=edge(angleOf(x,y),SRX,SRY,.94);P.act={k:'fish'};setT(e.x,e.y);return}
  P.act=null;setT(x,y)}
 function setT(x,y){if(norm(x,y,SRX,SRY)>.95){const e=edge(angleOf(x,y),SRX,SRY,.95);x=e.x;y=e.y}P.tx=x;P.ty=y}
-function presentPos(i){return edge(S.presents[i],(SRX+GRX)/2+6,(SRY+GRY)/2+6,1)}
+function posAt(a){return edge(a,(SRX+GRX)/2+6,(SRY+GRY)/2+6,1)}
+function presentPos(i){return posAt(S.presents[i])}
 
 // ---------- UPDATE ----------
 function update(dt){time+=dt;
@@ -179,67 +238,80 @@ function update(dt){time+=dt;
  const dx=P.tx-P.x,dy=P.ty-P.y,d=Math.hypot(dx,dy),sp=175;
  if(d>3){const s=Math.min(d,sp*dt);P.x+=dx/d*s;P.y+=dy/d*s;P.walk+=dt*12;P.moving=true;if(Math.abs(dx)>2)P.face=dx>0?1:-1}
  else{P.moving=false;if(a&&!['bug','talk'].includes(a.k)){P.act=null;doAct(a)}}
- NEIGH.forEach((n,i)=>{if(talking===n){n.face=P.x>n.x?1:-1;return}const joins=P.soak&&S.neigh[n.id].f>=3;
+ const vis=ONV();
+ NEIGH.forEach((n,i)=>{if(vis){const k=Math.min(1,dt*8);n.x+=(n.tx-n.x)*k;n.y+=(n.ty-n.y)*k;return}
+  if(talking===n){n.face=P.x>n.x?1:-1;return}const joins=P.soak&&S.neigh[n.id].f>=3;
   if(joins){n.tx=SOAK[i].x;n.ty=SOAK[i].y}else if(n.soak){n.soak=false;n.tx=n.hx;n.ty=n.hy;n.wait=rnd(1,3)}
   const ddx=n.tx-n.x,ddy=n.ty-n.y,dd=Math.hypot(ddx,ddy);if(dd>2){const s=Math.min(dd,(joins?70:38)*dt);n.x+=ddx/dd*s;n.y+=ddy/dd*s;if(Math.abs(ddx)>1)n.face=ddx>0?1:-1}else if(joins){n.soak=true;n.face=-1}else if((n.wait-=dt)<0){n.wait=rnd(2,6);n.tx=n.hx+rnd(-80,80);n.ty=n.hy+rnd(-50,50)}});
- if(P.soak&&S.soakDay!==S.dayKey){const want=NEIGH.filter(n=>S.neigh[n.id].f>=3),inn=want.filter(n=>n.soak);if(want.length&&inn.length===want.length){S.soakDay=S.dayKey;inn.forEach(n=>friend(n,1));SND.yay();openSpring(`Ahhh... ♨️ ${inn.map(n=>n.n).join(' and ')} came to soak with you! 💕 What a happy day!`);save()}}
+ if(!vis&&!VIS()&&P.soak&&S.soakDay!==S.dayKey){const want=NEIGH.filter(n=>S.neigh[n.id].f>=3),inn=want.filter(n=>n.soak);if(want.length&&inn.length===want.length){S.soakDay=S.dayKey;inn.forEach(n=>friend(n,1));SND.yay();openSpring(`Ahhh... ♨️ ${inn.map(n=>n.n).join(' and ')} came to soak with you! 💕 What a happy day!`);save()}}
  bugs.forEach(b=>{const it=ITEMS[b.t];b.ph+=dt;if((b.ch-=dt)<0){b.ch=rnd(1,3);const sp=it.fly?40:12,ang=rnd(0,6.28);b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp}
   if(b.flee>0){b.flee-=dt;const ex=b.x-P.x,ey=b.y-P.y,el=Math.hypot(ex,ey)||1;b.vx=ex/el*110;b.vy=ey/el*110}
   const nx=b.x+b.vx*dt,ny=b.y+b.vy*dt;if(norm(nx,ny,GRX,GRY)<.9){b.x=nx;b.y=ny}else{b.vx*=-1;b.vy*=-1}});
- if((bugTimer-=dt)<0){bugTimer=10;if(bugs.length<5)spawnBug()}
+ if(!VIS()&&(bugTimer-=dt)<0){bugTimer=10;if(bugs.length<5)spawnBug()}
  TREES.forEach(t=>t.shake=Math.max(0,t.shake-dt));
  parts=parts.filter(p=>(p.life-=dt)>0);parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt});
+ mpUpdate(dt);
  cam.x+=(P.x-cam.x)*Math.min(1,dt*6);cam.y+=(P.y-40+(talking?120/SCALE:0)-cam.y)*Math.min(1,dt*6);
  const hw=W/2/SCALE,hh=H/2/SCALE;cam.x=Math.max(hw-60,Math.min(1460-hw,cam.x));cam.y=Math.max(hh-60,Math.min(1180-hh,cam.y));
 }
 
 // ---------- ACTIONS ----------
-function doAct(a){
- if(a.k==='tree'){const t=TREES[a.i];t.shake=.6;const n=S.trees[a.i];if(n>0){S.trees[a.i]=0;const first=addItem(t.f,n);burst(t.x,t.y-60,ITEMS[t.f].e,n+2);SND.pop();const h=S.stack.length;toast(`You picked ${n} ${ITEMS[t.f].n}! ${ITEMS[t.f].e}`+(first?'<br>✨ New in your book!':'')+(h>=12?`<br>WOW! ${h} fruit on your head! 🤣`:h>=6?`<br>You're balancing ${h} fruit on your head! 😆`:''));save()}else toast('No fruit left. It will grow back tomorrow! 🌙')}
- else if(a.k==='present'){const p=presentPos(a.i);S.presents.splice(a.i,1);openPresent(p);save()}
- else if(a.k==='house')openHouse();
- else if(a.k==='shop')openShop();
- else if(a.k==='fish')startFish();
+function hostName(){return esc(MP.island?MP.island.name:'')}
+function doAct(a){const vis=ONV();
+ if(a.k==='tree'){const t=TREES[a.i];t.shake=.6;if(vis){toast(`Those are ${hostName()}'s ${t.f==='orange'?'oranges':'yuzu'}! ${ITEMS[t.f].e}<br>You can pick fruit on your own island.`);return}
+  const n=S.trees[a.i];if(n>0){S.trees[a.i]=0;const first=addItem(t.f,n);burst(t.x,t.y-60,ITEMS[t.f].e,n+2);SND.pop();const h=S.stack.length;toast(`You picked ${n} ${ITEMS[t.f].n}! ${ITEMS[t.f].e}`+(first?'<br>✨ New in your book!':'')+(h>=12?`<br>WOW! ${h} fruit on your head! 🤣`:h>=6?`<br>You're balancing ${h} fruit on your head! 😆`:''));save()}else toast('No fruit left. It will grow back tomorrow! 🌙')}
+ else if(a.k==='present'){if(vis){toast(`That present is for ${hostName()}! 🎁`);return}if(a.i>=S.presents.length)return;const p=presentPos(a.i);S.presents.splice(a.i,1);openPresent(p);save()}
+ else if(a.k==='fpresent'){if(vis){toast(`That present is for ${hostName()}! 💝`);return}openFPresent(a.i)}
+ else if(a.k==='house'){if(vis){toast(`That's ${hostName()}'s house! 🏠`);return}openHouse()}
+ else if(a.k==='shop'){if(vis){toast('Berry says: "Come shopping on your own island!" 🦝');return}openShop()}
+ else if(a.k==='fish'){if(vis){toast('No fishing on a visit.<br>You can fish at home! 🎣');return}startFish()}
  else if(a.k==='spring')enterSpring();
+ else if(a.k==='dock')openDock();
 }
 function catchBug(b){const it=ITEMS[b.t];if(Math.random()<.85){bugs.splice(bugs.indexOf(b),1);const first=addItem(b.t);burst(b.x,b.y,'✨',6);SND.yay();toast(`You caught a ${it.n}! ${it.e}`+(first?'<br>✨ New in your book!':''));save()}else{b.flee=1.2;SND.oops();toast(`Oh no, the ${it.n} got away! Try again!`)}}
 function openPresent(p){SND.yay();burst(p.x,p.y,'🎉',8);if(Math.random()<.55){const c=pick([100,150,200,250,300]);S.coins+=c;hud();modal(`<h2>🎁 A present!</h2><div style="text-align:center;font-size:60px">🪙</div><p style="text-align:center;font-size:20px;font-weight:800">It was full of coins!<br>+${c} coins</p><div class="row"><button class="btn" onclick="closeModal()">Yay!</button></div>`)}
  else{const id=Math.random()<.4?pick(PRESENT_ONLY):pick(BUYABLE);const first=addItem(id);modal(`<h2>🎁 A present!</h2><div style="text-align:center;font-size:70px">${ITEMS[id].e}</div><p style="text-align:center;font-size:20px;font-weight:800">You got a ${ITEMS[id].n}!${first?'<br>✨ New in your book!':''}</p><p style="text-align:center">Put it in your house! 🏠</p><div class="row"><button class="btn" onclick="closeModal()">Yay!</button></div>`)}}
+function openFPresent(i){const p=S.fpresents[i];if(!p)return;S.fpresents.splice(i,1);const id=ITEMS[p.item]&&ITEMS[p.item].k==='furn'?p.item:pick(GIFT_POOL),first=addItem(id),pp=posAt(p.a);SND.yay();burst(pp.x,pp.y,'💝',8);save();
+ modal(`<h2>🎁 From ${esc(p.from)}!</h2><div style="text-align:center;font-size:70px">${ITEMS[id].e}</div><p style="text-align:center;font-size:20px;font-weight:800">Your friend ${esc(p.from)} left you a ${ITEMS[id].n}!${first?'<br>✨ New in your book!':''}</p><p style="text-align:center">Put it in your house! 🏠</p><div class="row"><button class="btn" onclick="closeModal()">Yay! 💕</button></div>`)}
 
 // ---------- TALK ----------
 function hearts(f){const full=Math.floor(f/2);let s='';for(let i=0;i<5;i++)s+=i<full?'💗':'🤍';return s}
-function openTalk(n,override){talking=n;const s=S.neigh[n.id];if(!s.talked){s.talked=true;friend(n,1)}
+function openTalk(n,override){
+ if(VIS()){talking=n;const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent=n.e+' '+n.n;T.querySelector('.tt').innerHTML=pick([`Hi ${esc(S.name)}! Welcome to ${hostName()}'s island! 🌸`,`Yay, a visitor! Hi ${esc(S.name)}! 💕`].concat(n.lines));T.querySelector('.th').textContent='';const row=T.querySelector('.row');row.innerHTML='';const bye=document.createElement('button');bye.className='btn white';bye.textContent='Bye! 👋';bye.onclick=closeTalk;row.appendChild(bye);return}
+ talking=n;const s=S.neigh[n.id];if(!s.talked){s.talked=true;friend(n,1)}
  const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent=n.e+' '+n.n;const row=T.querySelector('.row');row.innerHTML='';
  let text=override;
- if(!text){if(!s.done&&s.req){const it=ITEMS[s.req];text=`Hi ${S.name}! Could you bring me ${it.k==='fruit'?'some':'a'} ${it.n} ${it.e}? That would make me so happy!`}else text=pick(n.lines)}
+ if(!text){if(!s.done&&s.req){const it=ITEMS[s.req];text=`Hi ${esc(S.name)}! Could you bring me ${it.k==='fruit'?'some':'a'} ${it.n} ${it.e}? That would make me so happy!`}else text=pick(n.lines)}
  T.querySelector('.tt').innerHTML=text;T.querySelector('.th').textContent='Friendship '+hearts(s.f);
  if(!s.done&&s.req&&S.bag[s.req]&&!override){const b=document.createElement('button');b.className='btn';b.textContent='Give '+ITEMS[s.req].e;b.onclick=()=>give(n);row.appendChild(b)}
  const bye=document.createElement('button');bye.className='btn white';bye.textContent='Bye! 👋';bye.onclick=closeTalk;row.appendChild(bye);save()}
 function closeTalk(){talking=null;$('#talk').classList.add('hidden')}
 function friend(n,v){const s=S.neigh[n.id];s.f=Math.min(10,s.f+v);burst(n.x,n.y-40,'💗',4)}
 function give(n){const s=S.neigh[n.id];if(!takeItem(s.req))return;s.done=true;S.coins+=150;hud();friend(n,2);SND.coin();
- let msg=`Thank you, ${S.name}!! 💕 Here are 150 coins!`;
+ let msg=`Thank you, ${esc(S.name)}!! 💕 Here are 150 coins!`;
  const thr=[4,10];thr.forEach((t,i)=>{const g=n.gifts[i];if(s.f>=t&&!s.g.includes(g)){s.g.push(g);addItem(g);msg+=`<br>And I made you a present because we're friends: ${ITEMS[g].n} ${ITEMS[g].e}!`;SND.yay()}});
  openTalk(n,msg)}
 
 // ---------- HOT SPRING ----------
-function enterSpring(){P.soak=true;P.x=SPRING.x-28;P.y=SPRING.y+4;P.tx=P.x;P.ty=P.y;P.face=1;SND.pop();burst(P.x,P.y-20,'💦',5);openSpring()}
+function enterSpring(){P.soak=true;if(ONV()){const v=pick(VSOAK);P.x=v.x;P.y=v.y}else{P.x=SPRING.x-28;P.y=SPRING.y+4}P.tx=P.x;P.ty=P.y;P.face=1;SND.pop();burst(P.x,P.y-20,'💦',5);openSpring()}
 function leaveSpring(){P.soak=false;P.x=SPRING.x-SPRING.rx-16;P.y=SPRING.y+6;P.tx=P.x;P.ty=P.y}
-function openSpring(msg){talking='spring';const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent='♨️ Hot Spring';const fr=NEIGH.filter(n=>S.neigh[n.id].f>=3);
- T.querySelector('.tt').innerHTML=msg||(fr.length?`Ahhh... so warm! ${fr.map(n=>n.e+' '+n.n).join(' and ')} ${fr.length>1?'are':'is'} coming to soak with you!`:`Ahhh... so warm! ♨️ Help your friends, and they'll come soak with you.`);
- T.querySelector('.th').textContent=S.yuzu?`🍋 ${S.yuzu} yuzu floating in the water`:'';const row=T.querySelector('.row');row.innerHTML='';
+function openSpring(msg){talking='spring';const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent='♨️ Hot Spring';const row=T.querySelector('.row');row.innerHTML='';
  const add=(t,f,c)=>{const b=document.createElement('button');b.className='btn'+(c?' '+c:'');b.textContent=t;b.onclick=f;row.appendChild(b)};
+ if(ONV()){T.querySelector('.tt').innerHTML=`Ahhh... so warm! ♨️ ${hostName()}'s hot spring is the best!`;T.querySelector('.th').textContent='';add('Get out',()=>{closeTalk();leaveSpring()},'white');return}
+ const fr=NEIGH.filter(n=>S.neigh[n.id].f>=3);
+ T.querySelector('.tt').innerHTML=msg||(fr.length?`Ahhh... so warm! ${fr.map(n=>n.e+' '+n.n).join(' and ')} ${fr.length>1?'are':'is'} coming to soak with you!`:`Ahhh... so warm! ♨️ Help your friends, and they'll come soak with you.`);
+ T.querySelector('.th').textContent=S.yuzu?`🍋 ${S.yuzu} yuzu floating in the water`:'';
  if(S.bag.yuzu)add('Toss in a yuzu 🍋',tossYuzu);add('Decorate 🏮',decoSpring);add('Get out',()=>{closeTalk();leaveSpring()},'white')}
-function tossYuzu(){if(!takeItem('yuzu'))return;S.yuzu++;SND.pop();burst(SPRING.x,SPRING.y-10,'💛',4);save();openSpring(pick(['Plop! Now the water smells like yuzu! 🍋','Plop! A cozy yuzu bath! 💛','Splash! Another yuzu for the spring!']))}
-function decoSpring(){modal(`<h2>♨️ Decorate the Hot Spring</h2><p style="text-align:center">Tap a spot to put something there. Tap it again to put it away.</p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${S.spring.map((id,i)=>id?`<div class="cell" onclick="springSlot(${i})">${ITEMS[id].e}<small>${ITEMS[id].n}</small></div>`:`<div class="cell unk" onclick="springSlot(${i})">+</div>`).join('')}</div><div class="row"><button class="btn" onclick="closeModal();if(P.soak)openSpring()">Done</button></div>`)}
-window.springSlot=i=>{const id=S.spring[i];if(id){S.spring[i]=null;addItem(id);SND.pop();save();decoSpring();return}
+function tossYuzu(){if(VIS()||!takeItem('yuzu'))return;S.yuzu++;SND.pop();burst(SPRING.x,SPRING.y-10,'💛',4);save();openSpring(pick(['Plop! Now the water smells like yuzu! 🍋','Plop! A cozy yuzu bath! 💛','Splash! Another yuzu for the spring!']))}
+function decoSpring(){if(VIS())return;modal(`<h2>♨️ Decorate the Hot Spring</h2><p style="text-align:center">Tap a spot to put something there. Tap it again to put it away.</p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${S.spring.map((id,i)=>id?`<div class="cell" onclick="springSlot(${i})">${ITEMS[id].e}<small>${ITEMS[id].n}</small></div>`:`<div class="cell unk" onclick="springSlot(${i})">+</div>`).join('')}</div><div class="row"><button class="btn" onclick="closeModal();if(P.soak)openSpring()">Done</button></div>`)}
+window.springSlot=i=>{if(VIS())return;const id=S.spring[i];if(id){S.spring[i]=null;addItem(id);SND.pop();save();decoSpring();return}
  const fk=Object.keys(S.bag).filter(k=>ITEMS[k].k==='furn');if(!fk.length){toast('No furniture in your bag yet! Try the shop 🦝');return}
  modal(`<h2>What goes here?</h2><div class="grid">${fk.map(k=>`<div class="cell" onclick="placeSpring(${i},'${k}')">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')}</div><div class="row"><button class="btn white" onclick="decoSpring()">Back</button></div>`)};
-window.placeSpring=(i,k)=>{if(!takeItem(k))return;S.spring[i]=k;SND.pop();save();decoSpring()};
+window.placeSpring=(i,k)=>{if(VIS()||!takeItem(k))return;S.spring[i]=k;SND.pop();save();decoSpring()};
 
 // ---------- FISHING ----------
 let F=null;
-function startFish(){busy=true;closeTalk();$('#fish').classList.remove('hidden');fishWait()}
+function startFish(){if(VIS())return;busy=true;closeTalk();$('#fish').classList.remove('hidden');fishWait()}
 function fishWait(){clearTimeout(F&&F.t);F={st:'wait'};$('#fmsg').textContent='Wait for the fish to bite...';$('#fbtn').classList.remove('bite');$('#bobber').style.transform='translate(-50%,-50%)';
  const nib=()=>{if(!F||F.st!=='wait')return;$('#bobber').style.transform='translate(-50%,-40%)';setTimeout(()=>{if(F&&F.st==='wait')$('#bobber').style.transform='translate(-50%,-50%)'},150)};
  setTimeout(nib,rnd(700,1400));F.t=setTimeout(()=>{F.st='bite';$('#fmsg').textContent='SPLASH! Tap now! 🎣';$('#fbtn').classList.add('bite');$('#bobber').style.transform='translate(-50%,-10%) scale(.8)';beep([[300,.1]]);F.t=setTimeout(()=>{if(F&&F.st==='bite'){F.st='miss';$('#fmsg').textContent='It swam away... try again!';$('#fbtn').classList.remove('bite');F.t=setTimeout(fishWait,1300)}},1600)},rnd(1800,4500))}
@@ -249,8 +321,8 @@ $('#fbtn').onclick=reel;$('#fwater').onclick=reel;
 $('#fcancel').onclick=()=>{clearTimeout(F&&F.t);F=null;busy=false;$('#fish').classList.add('hidden');$('#bobber').textContent='🔴'};
 
 // ---------- MODALS ----------
-function modal(html){busy=true;closeTalk();$('#card').innerHTML=html;$('#modal').classList.remove('hidden')}
-function closeModal(){$('#modal').classList.add('hidden');busy=false}
+function modal(html){busy=true;closeTalk();MP.dockOpen=false;$('#card').innerHTML=html;$('#modal').classList.remove('hidden')}
+function closeModal(){$('#modal').classList.add('hidden');busy=false;MP.dockOpen=false}
 window.closeModal=closeModal;
 function bagView(){const keys=Object.keys(S.bag);let h=`<h2>🎒 My Bag</h2>`;if(!keys.length)h+='<p style="text-align:center">Your bag is empty. Pick fruit, catch bugs, and go fishing!</p>';
  h+='<div class="grid">'+keys.map(k=>`<div class="cell">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')+'</div>';
@@ -258,86 +330,440 @@ function bagView(){const keys=Object.keys(S.bag);let h=`<h2>🎒 My Bag</h2>`;if
 let bookTab='bug';
 function bookView(){const l=ids(bookTab),got=l.filter(i=>S.found[i]).length;const tab=(k,t)=>`<button class="btn ${bookTab===k?'':'off'}" onclick="bookTab='${k}';bookView()">${t}</button>`;
  let h=`<h2>📖 My Collection</h2><div class="tabs">${tab('bug','🦋 Bugs')}${tab('fish','🐟 Fish')}${tab('furn','🛋️ Furniture')}${tab('fruit','🍎 Fruit')}</div><p style="text-align:center;font-weight:900;margin:4px 0 10px">${got} / ${l.length} found${got===l.length?' 🏆 All done!':''}</p><div class="grid">`;
- h+=l.map(i=>S.found[i]?`<div class="cell">${ITEMS[i].e}<small>${ITEMS[i].n}</small></div>`:`<div class="cell unk">?</div>`).join('')+'</div><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>';modal(h)}
+ h+=l.map(i=>S.found[i]?`<div class="cell">${ITEMS[i].e}<small>${ITEMS[i].n}</small></div>`:`<div class="cell unk">?</div>`).join('')+'</div><div class="row"><button class="btn white" onclick="openDock(\'guestbook\')">📝 Guestbook</button><button class="btn" onclick="closeModal()">Close</button></div>';modal(h)}
 window.bookView=bookView;
 let shopTab='sell';
-function openShop(){closeTalk();const tab=(k,t)=>`<button class="btn ${shopTab===k?'':'off'}" onclick="shopTab='${k}';openShop()">${t}</button>`;
- let h=`<h2>🦝 Berry's Shop</h2><p style="text-align:center;margin:0 0 10px">"Welcome, ${S.name}! What can I do for you today?"</p><div class="tabs">${tab('sell','Sell 🪙')}${tab('buy','Buy 🛋️')}</div><div class="list">`;
+function openShop(){if(VIS())return;closeTalk();const tab=(k,t)=>`<button class="btn ${shopTab===k?'':'off'}" onclick="shopTab='${k}';openShop()">${t}</button>`;
+ let h=`<h2>🦝 Berry's Shop</h2><p style="text-align:center;margin:0 0 10px">"Welcome, ${esc(S.name)}! What can I do for you today?"</p><div class="tabs">${tab('sell','Sell 🪙')}${tab('buy','Buy 🛋️')}</div><div class="list">`;
  if(shopTab==='sell'){const keys=Object.keys(S.bag);if(!keys.length)h+='<p style="text-align:center">You have nothing to sell yet.</p>';
   h+=keys.map(k=>`<div class="li"><span class="e">${ITEMS[k].e}</span><span class="t">${ITEMS[k].n} ×${S.bag[k]}<small>${ITEMS[k].p} coins each</small></span><button class="btn" onclick="sell('${k}',1)">Sell 1</button>${S.bag[k]>1?`<button class="btn white" onclick="sell('${k}',${S.bag[k]})">All</button>`:''}</div>`).join('')}
  else{h+='<p style="text-align:center;margin-top:0">New furniture every day!</p>'+S.stock.map(k=>`<div class="li"><span class="e">${ITEMS[k].e}</span><span class="t">${ITEMS[k].n}<small>${ITEMS[k].buy} coins</small></span><button class="btn" ${S.coins<ITEMS[k].buy?'disabled':''} onclick="buy('${k}')">Buy</button></div>`).join('')}
  h+='</div><div class="row"><button class="btn white" onclick="closeModal()">Bye, Berry! 👋</button></div>';modal(h)}
 window.openShop=openShop;
-window.sell=(k,n)=>{if(!takeItem(k,n))return;S.coins+=ITEMS[k].p*n;SND.coin();hud();save();openShop()};
-window.buy=k=>{if(S.coins<ITEMS[k].buy)return;S.coins-=ITEMS[k].buy;const first=addItem(k);SND.yay();hud();save();openShop();toast(`You bought a ${ITEMS[k].n}! ${ITEMS[k].e}`+(first?'<br>✨ New in your book!':''))};
+window.sell=(k,n)=>{if(VIS()||!takeItem(k,n))return;S.coins+=ITEMS[k].p*n;SND.coin();hud();save();openShop()};
+window.buy=k=>{if(VIS()||S.coins<ITEMS[k].buy)return;S.coins-=ITEMS[k].buy;const first=addItem(k);SND.yay();hud();save();openShop();toast(`You bought a ${ITEMS[k].n}! ${ITEMS[k].e}`+(first?'<br>✨ New in your book!':''))};
 
 // ---------- HOUSE ----------
-function openHouse(){busy=true;closeTalk();$('#house').classList.remove('hidden');$('#htitle').textContent=`${S.name}'s House`;drawRoom()}
+function openHouse(){if(VIS())return;busy=true;closeTalk();$('#house').classList.remove('hidden');$('#htitle').textContent=`${S.name}'s House`;drawRoom()}
 function drawRoom(){const f=$('#floor');f.innerHTML='';S.room.forEach((id,i)=>{const d=document.createElement('div');d.className='slot';d.textContent=id?ITEMS[id].e:'';d.onclick=()=>slotTap(i);f.appendChild(d)});
  const n=S.room.filter(Boolean).length,u=new Set(S.room.filter(Boolean)).size;const stars=n===0?'':n<4?'⭐':n<8?'⭐⭐':n<13?'⭐⭐⭐':u>=12?'⭐⭐⭐⭐⭐':'⭐⭐⭐⭐';$('#score').textContent=n?`Cozy level: ${stars}`:'Your house is empty. Let\'s decorate!'}
 function slotTap(i){const id=S.room[i];if(id){S.room[i]=null;addItem(id);SND.pop();save();drawRoom();return}
  const fk=Object.keys(S.bag).filter(k=>ITEMS[k].k==='furn');
  if(!fk.length){modal(`<h2>No furniture yet</h2><p style="text-align:center">Buy furniture at Berry's Shop 🦝, open presents on the beach 🎁, or help your friends!</p><div class="row"><button class="btn" onclick="closeModal();busy=true">OK</button></div>`);return}
  modal(`<h2>What goes here?</h2><div class="grid">${fk.map(k=>`<div class="cell" onclick="place(${i},'${k}')">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')}</div><div class="row"><button class="btn white" onclick="closeModal();busy=true">Never mind</button></div>`)}
-window.place=(i,k)=>{if(!takeItem(k))return;S.room[i]=k;SND.pop();save();closeModal();busy=true;drawRoom()};
+window.place=(i,k)=>{if(VIS()||!takeItem(k))return;S.room[i]=k;SND.pop();save();closeModal();busy=true;drawRoom()};
 $('#hexit').onclick=()=>{$('#house').classList.add('hidden');busy=false;P.tx=HOUSE.x;P.ty=HOUSE.y+30;P.x=HOUSE.x;P.y=HOUSE.y+24};
 $('#bBag').onclick=()=>{if(!busy||!$('#modal').classList.contains('hidden'))bagView()};
 $('#bBook').onclick=()=>{if(!busy||!$('#modal').classList.contains('hidden'))bookView()};
-$('#bHome').onclick=()=>{if(busy)return;P.act={k:'house'};setT(HOUSE.x,HOUSE.y+22)};
+$('#bHome').onclick=()=>{if(busy||VIS())return;P.act={k:'house'};setT(HOUSE.x,HOUSE.y+22)};
 
-// ---------- DRAW ----------
+// ---------- DRAW HELPERS (2.5D: light from top-left) ----------
 function ell(x,y,rx,ry,c){ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill()}
-function emoji(e,x,y,s){ctx.fillStyle='#000';ctx.font=`${s}px ${EMO}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e,x,y)}
-function islandPath(rx,ry,k){ctx.beginPath();for(let i=0;i<=120;i++){const t=i/120*Math.PI*2,p=edge(t,rx,ry,k);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)}ctx.closePath()}
-function drawCapy(x,y,face,moving,walk){ctx.save();ctx.translate(x,y);ell(0,0,24,7,'rgba(0,0,0,.18)');ctx.scale(face,1);const b=moving?Math.abs(Math.sin(walk))*-3:Math.sin(time*2)*.8,l=moving?Math.sin(walk)*4:0;
- ctx.fillStyle='#d9779f';[[-14,l],[-5,-l],[8,l],[16,-l]].forEach(([lx,o])=>{ctx.fillRect(lx-3,-12+b,7,12+o*.5)});
- ell(0,-22+b,25,16,'#f39ac0');ell(-4,-18+b,18,9,'#f8b6d3');
- ell(20,-33+b,15,12,'#f39ac0');ell(28,-30+b,9,9,'#e684ae');ell(33,-32+b,3.2,2.4,'#7a2d4f');
- ell(21,-37+b,2.6,2.8,'#3a1426');ell(22,-38+b,.9,.9,'#fff');ell(12,-44+b,4,3.2,'#d9779f');ell(19,-29+b,3.8,2.4,'rgba(255,70,140,.55)');
- ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(-5,-51+b);ctx.lineTo(-5,-39+b);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(12,-52+b);ctx.lineTo(12,-39+b);ctx.closePath();ctx.fill();ell(4,-45+b,3.2,3.2,'#ff3d96');
- const st=S.stack,sw=moving?1.6:.5;for(let i=0;i<Math.min(st.length,15);i++){const o=Math.sin(time*3+i*.6)*i*sw*.5;emoji(ITEMS[st[i]].e,20+o,-51+b-i*12,19)}
+function poly(pts,c){ctx.fillStyle=c;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill()}
+function rr(x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function vgrad(y0,y1,a,b){const g=ctx.createLinearGradient(0,y0,0,y1);g.addColorStop(0,a);g.addColorStop(1,b);return g}
+function hgrad(x0,x1,a,b){const g=ctx.createLinearGradient(x0,0,x1,0);g.addColorStop(0,a);g.addColorStop(1,b);return g}
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;if(f>0){r+=(255-r)*f;g+=(255-g)*f;b+=(255-b)*f}else{r*=1+f;g*=1+f;b*=1+f}return`rgb(${r|0},${g|0},${b|0})`}
+// soft drop shadow sprite (drawn stretched), falls slightly to the lower-right
+const SHADOW=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(80,30,70,.40)');r.addColorStop(.5,'rgba(80,30,70,.26)');r.addColorStop(1,'rgba(80,30,70,0)');g.fillStyle=r;g.fillRect(0,0,64,64);return c})();
+function shadow(x,y,rx,ry,a){if(a!==undefined)ctx.globalAlpha=a;ctx.drawImage(SHADOW,x-rx+rx*.14,y-ry+ry*.2,rx*2,ry*2);ctx.globalAlpha=1}
+// emoji sprite cache (text rendering is the slowest thing on phones)
+function emoji(e,x,y,s){const k=e+'|'+s;let c=EC.get(k);if(!c){if(EC.size>400)EC.clear();const px=Math.ceil(s*1.3*ER);c=document.createElement('canvas');c.width=c.height=px;const g=c.getContext('2d');g.font=`${s*ER}px ${EMO}`;g.textAlign='center';g.textBaseline='middle';g.fillStyle='#000';g.fillText(e,px/2,px/2);EC.set(k,c)}const d=s*1.3;ctx.drawImage(c,x-d/2,y-d/2,d,d)}
+function islandPath(rx,ry,k,dy=0,dx=0){ctx.beginPath();for(let i=0;i<=120;i++){const t=i/120*Math.PI*2,p=edge(t,rx,ry,k);i?ctx.lineTo(p.x+dx,p.y+dy):ctx.moveTo(p.x+dx,p.y+dy)}ctx.closePath()}
+
+// ---------- STATIC ISLAND LAYER (cached offscreen) ----------
+const IB={x:-20,y:0,w:1440,h:1170};let ISL_CV=null,ISL_K=0;
+function buildIsland(){const k=Math.min(DPR*SCALE,2200/IB.w);if(ISL_CV&&Math.abs(k-ISL_K)<.05)return;ISL_K=k;const c=ISL_CV||document.createElement('canvas');c.width=Math.ceil(IB.w*k);c.height=Math.ceil(IB.h*k);const g=c.getContext('2d');g.setTransform(k,0,0,k,-IB.x*k,-IB.y*k);const old=ctx;ctx=g;try{paintIsland()}finally{ctx=old}ISL_CV=c}
+function paintIsland(){let s=11;const r=()=>(s=(s*16807)%2147483647)/2147483647;
+ // shallow water around the island
+ [[1.2,'rgba(200,250,255,.16)'],[1.12,'rgba(200,250,255,.2)'],[1.06,'rgba(215,252,255,.28)']].forEach(([k,c])=>{ctx.fillStyle=c;islandPath(SRX,SRY,k,12);ctx.fill()});
+ // cliff: the island is a raised landmass (sand layers visible on the south side)
+ ctx.fillStyle='#a57c4f';islandPath(SRX,SRY,1,27);ctx.fill();
+ const cg=ctx.createLinearGradient(0,CY+150,0,CY+SRY+30);cg.addColorStop(0,'#e3bf86');cg.addColorStop(1,'#c39862');ctx.fillStyle=cg;islandPath(SRX,SRY,1,22);ctx.fill();
+ ctx.fillStyle='rgba(255,240,210,.35)';islandPath(SRX,SRY,1,10);ctx.fill();
+ ctx.fillStyle='rgba(140,90,40,.18)';islandPath(SRX,SRY,1,16);ctx.fill();ctx.fillStyle=cg;islandPath(SRX,SRY,1,14);ctx.fill();ctx.fillStyle='rgba(255,240,210,.3)';islandPath(SRX,SRY,1,10);ctx.fill();
+ // sand top
+ const sg=ctx.createRadialGradient(CX-260,CY-260,60,CX,CY,SRX*1.08);sg.addColorStop(0,'#fff3d4');sg.addColorStop(1,'#f4d69d');ctx.fillStyle=sg;islandPath(SRX,SRY,1);ctx.fill();
+ ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=3;islandPath(SRX,SRY,.995);ctx.stroke();
+ for(let i=0;i<260;i++){const t=r()*Math.PI*2,k=.9+r()*.09,p=edge(t,SRX,SRY,k);if(norm(p.x,p.y,GRX,GRY)<1.03)continue;ell(p.x,p.y,1.4,1,r()<.5?'rgba(190,140,80,.35)':'rgba(255,255,255,.6)')}
+ // shells
+ for(let i=0;i<10;i++){const t=r()*Math.PI*2,p=edge(t,SRX,SRY,.955);if(Math.abs(t-DA)<.3)continue;ell(p.x+1,p.y+1.5,4.5,3,'rgba(150,100,60,.25)');ell(p.x,p.y,4.5,3,r()<.5?'#ffd1e3':'#fff');ell(p.x-1.2,p.y-.8,1.5,1,'rgba(255,255,255,.9)')}
+ // grass plateau (a little step up from the beach) + its shadow on the sand
+ ctx.fillStyle='rgba(150,100,40,.18)';islandPath(GRX,GRY,1,16,6);ctx.fill();
+ ctx.fillStyle='#4f9c42';islandPath(GRX,GRY,1,10);ctx.fill();ctx.fillStyle='#66b551';islandPath(GRX,GRY,1,6);ctx.fill();
+ const gg=ctx.createRadialGradient(CX-240,CY-230,40,CX,CY,GRX*1.05);gg.addColorStop(0,'#b6ec92');gg.addColorStop(.6,'#9ade79');gg.addColorStop(1,'#86ce66');ctx.fillStyle=gg;islandPath(GRX,GRY,1);ctx.fill();
+ ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=3;islandPath(GRX,GRY,.992,-1);ctx.stroke();
+ // soft grass patches
+ for(let i=0;i<70;i++){const x=150+r()*1100,y=150+r()*830;if(norm(x,y,GRX,GRY)>.9)continue;ell(x,y,18+r()*26,8+r()*10,r()<.5?'rgba(255,255,255,.07)':'rgba(40,110,40,.06)')}
+ // spring's worn stone patch shadow
+ ell(SPRING.x+6,SPRING.y+10,SPRING.rx+30,SPRING.ry+22,'rgba(60,90,40,.14)');
+ // flowers + grass tufts with tiny shadows
+ FLOWERS.forEach(f=>{if(f.g){ctx.strokeStyle='#5aae46';ctx.lineWidth=2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(f.x-4,f.y);ctx.lineTo(f.x-6,f.y-7);ctx.moveTo(f.x,f.y);ctx.lineTo(f.x,f.y-9);ctx.moveTo(f.x+4,f.y);ctx.lineTo(f.x+6,f.y-7);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(f.x-.5,f.y-2);ctx.lineTo(f.x-.5,f.y-8);ctx.stroke()}
+  else{ell(f.x+2,f.y+3,7,3,'rgba(40,90,30,.18)');ctx.strokeStyle='#5aae46';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(f.x,f.y+1);ctx.lineTo(f.x,f.y+5);ctx.stroke();for(let k=0;k<5;k++){const a=k*1.2566;ell(f.x+Math.cos(a)*3.5,f.y+Math.sin(a)*3.5,3,3,f.c)}ell(f.x,f.y,2.2,2.2,'#ffd84d');ell(f.x-.7,f.y-.7,.8,.8,'#fff')}});
+ // wooden pier for the seaplane
+ const px=PIER.x,py=PIER.y,L=PIER.len;
+ ctx.fillStyle='rgba(20,70,120,.22)';ctx.fillRect(px+10,py+30,20,L-20);
+ for(let yy=py+40;yy<=py+L;yy+=38){ctx.fillStyle='#6d4428';ctx.fillRect(px-16,yy,6,16);ctx.fillRect(px+10,yy,6,16);ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillRect(px-18,yy+14,10,2);ctx.fillRect(px+8,yy+14,10,2)}
+ ctx.fillStyle='#8a5a36';ctx.fillRect(px-18,py+L,36,6);ctx.fillStyle='#7a4c2c';ctx.fillRect(px+18,py,4,L+6);
+ for(let yy=py;yy<py+L;yy+=10){ctx.fillStyle=((yy-py)/10)%2?'#c8905e':'#d39c69';ctx.fillRect(px-18,yy,36,9);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(px-18,yy,36,2);ctx.fillStyle='rgba(90,50,20,.35)';ctx.fillRect(px-18,yy+9,36,1)}
+ ctx.fillStyle='#b77d4c';ctx.fillRect(px-20,py+L-4,6,10);ctx.fillRect(px+14,py+L-4,6,10);
+}
+
+// ---------- 3D-ish objects ----------
+function drawCapy(x,y,face,moving,walk,col,stack,soak){const C=CAPY[col]||CAPY.pink;ctx.save();ctx.translate(x,y);
+ const up=moving?Math.abs(Math.sin(walk)):0,b=moving?-up*3:Math.sin(time*2)*.8,l=moving?Math.sin(walk)*4:0;
+ if(!soak)shadow(3,1,28-up*3,8.5);
+ const sq=moving?Math.cos(walk*2)*.05:Math.sin(time*2)*.012;ctx.scale(face*(1+sq),1-sq);
+ const L=-face;// light always comes from world top-left
+ [[-5,-l,1],[16,-l,1],[-14,l,0],[8,l,0]].forEach(([lx,o,far])=>{rr(lx-3.6,-13+b,7.2,13+o*.5,3.4);ctx.fillStyle=far?shade(C.d,-.12):C.d;ctx.fill()});
+ let g=ctx.createRadialGradient(L*9,-33+b,2,0,-20+b,30);g.addColorStop(0,C.l);g.addColorStop(.5,C.b);g.addColorStop(1,C.d);ell(0,-22+b,25,16,g);
+ ell(-2,-12+b,17,4,'rgba(0,0,0,.06)');
+ g=ctx.createRadialGradient(20+L*5,-40+b,1,20,-33+b,17);g.addColorStop(0,C.l);g.addColorStop(.6,C.b);g.addColorStop(1,C.d);ell(20,-33+b,15,12,g);
+ ell(28,-30+b,9,9,C.s);ell(27+L*2,-33+b,4,2.6,'rgba(255,255,255,.35)');ell(33,-32+b,3.2,2.4,'#7a2d4f');
+ ell(21,-37+b,2.6,2.8,'#3a1426');ell(22,-38+b,.9,.9,'#fff');ell(12,-44+b,4,3.2,C.d);ell(12.5,-44.5+b,2,1.5,shade(C.d,-.2));ell(19,-29+b,3.8,2.4,'rgba(255,70,140,.55)');
+ // white bow with a little shading
+ const bw=(x2,y2,y3)=>{ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(x2,y2+b);ctx.lineTo(x2,y3+b);ctx.closePath()};
+ bw(-5,-51,-39);ctx.fillStyle='#fff';ctx.fill();bw(12,-52,-39);ctx.fill();
+ ctx.fillStyle='rgba(200,150,185,.45)';ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(-5,-39+b);ctx.lineTo(-5,-44+b);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(12,-39+b);ctx.lineTo(12,-44+b);ctx.closePath();ctx.fill();
+ ell(4,-45+b,3.2,3.2,'#ff3d96');ell(3.2,-46+b,1.2,1,'rgba(255,255,255,.8)');
+ const st=stack||[],sw=moving?1.6:.5;for(let i=0;i<Math.min(st.length,15);i++){const o=Math.sin(time*3+i*.6)*i*sw*.5;emoji(ITEMS[st[i]].e,20+o,-51+b-i*12,19)}
  ctx.restore()}
-function drawHouse(x,y){ell(x,y+2,70,12,'rgba(0,0,0,.15)');ctx.fillStyle='#ffc9e0';ctx.fillRect(x-56,y-72,112,72);ctx.fillStyle='#ff6fae';ctx.beginPath();ctx.moveTo(x-68,y-70);ctx.lineTo(x,y-128);ctx.lineTo(x+68,y-70);ctx.closePath();ctx.fill();
- ctx.fillStyle='#b44f80';ctx.fillRect(x-14,y-40,28,40);ell(x+8,y-20,2.5,2.5,'#ffd84d');ctx.fillStyle='#bfefff';ctx.fillRect(x-46,y-56,24,20);ctx.fillRect(x+22,y-56,24,20);emoji('💗',x,y-92,22);if(S.name){ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const t=S.name+"'s House",w=ctx.measureText(t).width+16;ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(x-w/2,y-150,w,20);ctx.fillStyle='#c2427f';ctx.fillText(t,x,y-140)}}
-function drawShop(x,y){ell(x,y+2,70,12,'rgba(0,0,0,.15)');ctx.fillStyle='#c8f2e2';ctx.fillRect(x-56,y-80,112,80);for(let i=0;i<7;i++){ctx.fillStyle=i%2?'#fff':'#ff8cc6';ctx.beginPath();ctx.moveTo(x-64+i*18.3,y-82);ctx.lineTo(x-64+(i+1)*18.3,y-82);ctx.lineTo(x-64+(i+1)*18.3,y-64);ctx.arc(x-64+(i+.5)*18.3,y-64,9.15,0,Math.PI);ctx.closePath();ctx.fill()}
- ctx.fillStyle='#ff8cc6';ctx.fillRect(x-40,y-112,80,28);ctx.fillStyle='#fff';ctx.font='bold 17px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SHOP',x,y-98);ctx.fillStyle='#8fd8f5';ctx.fillRect(x-44,y-50,50,34);emoji('🦝',x-19,y-32,26);ctx.fillStyle='#6b8f80';ctx.fillRect(x+16,y-44,24,44)}
-function drawSpring(){const{x,y,rx,ry}=SPRING;ell(x,y+5,rx+22,ry+16,'rgba(0,0,0,.1)');
- for(let i=0;i<24;i++){const a=i/24*Math.PI*2;ell(x+Math.cos(a)*(rx+8),y+Math.sin(a)*(ry+7),13,9,i%2?'#b9b0a8':'#d3cac1')}
- ell(x,y,rx,ry,'#6fd2cc');ell(x,y-3,rx-10,ry-8,'#98e8e2');
- for(let i=0;i<Math.min(S.yuzu,12);i++){const a=i*2.4+time*.15,r=.3+((i*37)%10)/18;emoji('🍋',x+Math.cos(a)*rx*r*.8,y+Math.sin(a)*ry*r*.7,14)}
+function capyTop(stackLen,soak){return(soak?-38:-56)-Math.min(stackLen,15)*12}
+
+function drawHouse(x,y){const nm=ISL().name;shadow(x+16,y+3,92,17);
+ poly([[x+56,y],[x+72,y-10],[x+72,y-82],[x+56,y-72]],'#e595b9');
+ ctx.fillStyle=vgrad(y-72,y,'#ffdced','#ffbfd9');ctx.fillRect(x-56,y-72,112,72);
+ ctx.fillStyle='#e38cb4';ctx.fillRect(x-56,y-7,112,7);poly([[x+56,y],[x+72,y-10],[x+72,y-17],[x+56,y-7]],'#c9749c');
+ ctx.fillStyle='rgba(140,30,80,.13)';ctx.fillRect(x-56,y-72,112,9);
+ // windows
+ [x-34,x+34].forEach(wx=>{ctx.fillStyle='rgba(140,40,90,.2)';ctx.fillRect(wx-12,y-54,28,24);ctx.fillStyle='#fff';ctx.fillRect(wx-14,y-56,28,24);ctx.fillStyle=vgrad(y-53,y-35,'#e2f8ff','#8fd0ee');ctx.fillRect(wx-11,y-53,22,18);
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.moveTo(wx-11,y-44);ctx.lineTo(wx-3,y-53);ctx.lineTo(wx+2,y-53);ctx.lineTo(wx-11,y-39);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillRect(wx-1,y-53,2,18);ctx.fillRect(wx-11,y-45,22,2);ctx.fillStyle='#d9709f';ctx.fillRect(wx-16,y-32,32,4);ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(wx-16,y-28,32,2);
+  ell(wx-8,y-33,3,2.4,'#ff4f9e');ell(wx,y-34,3,2.4,'#fff27a');ell(wx+8,y-33,3,2.4,'#ff7fbf')});
+ // door
+ rr(x-17,y-47,34,47,14);ctx.fillStyle='#8f3a63';ctx.fill();rr(x-13,y-43,26,43,11);ctx.fillStyle=hgrad(x-13,x+13,'#c7608f','#9f4270');ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(x-9,y-34,7,26);ctx.fillRect(x+2,y-34,7,26);ell(x+8,y-20,2.6,2.6,'#ffd84d');ell(x+7.3,y-20.8,1,1,'#fff');
+ ctx.fillStyle='#e9b98f';ctx.fillRect(x-20,y-2,40,5);ctx.fillStyle='#c99a70';ctx.fillRect(x-20,y+3,40,2);
+ // roof: front slope (lit), right slope (shade), ridge top (brightest)
+ ctx.fillStyle='#c94c86';rr(x+30,y-150,14,26,2);ctx.fill();ctx.fillStyle='#a93a6e';ctx.fillRect(x+44,y-146,5,22);ctx.fillStyle='#ffb3d3';ctx.fillRect(x+28,y-154,18,5);
+ poly([[x+70,y-66],[x+88,y-78],[x+62,y-132],[x+44,y-120]],'#cc4f88');
+ poly([[x-44,y-120],[x+44,y-120],[x+62,y-132],[x-26,y-132]],'#ffb0d2');
+ ctx.fillStyle=vgrad(y-120,y-66,'#ff94c5','#f25ea2');poly([[x-70,y-66],[x+70,y-66],[x+44,y-120],[x-44,y-120]],ctx.fillStyle);
+ ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=2;[.25,.5,.75].forEach(f=>{const yy=y-66-54*f,hw=70-26*f;ctx.beginPath();ctx.moveTo(x-hw+3,yy);ctx.lineTo(x+hw-3,yy);ctx.stroke()});
+ ctx.fillStyle='#d24a8a';ctx.fillRect(x-70,y-68,140,4);poly([[x+70,y-68],[x+88,y-80],[x+88,y-76],[x+70,y-64]],'#a83a6e');
+ emoji('💗',x,y-93,22);
+ if(nm){ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const t=nm+"'s House",w=ctx.measureText(t).width+18;ctx.fillStyle='rgba(160,50,100,.2)';rr(x-w/2+2,y-170,w,22,11);ctx.fill();ctx.fillStyle='rgba(255,255,255,.95)';rr(x-w/2,y-172,w,22,11);ctx.fill();ctx.fillStyle='#c2427f';ctx.fillText(t,x,y-161)}}
+
+function drawShop(x,y){shadow(x+16,y+3,92,17);
+ poly([[x+56,y],[x+72,y-10],[x+72,y-92],[x+56,y-82]],'#93cdb5');
+ ctx.fillStyle=vgrad(y-82,y,'#dcfaee','#b3e8d2');ctx.fillRect(x-56,y-82,112,82);
+ ctx.fillStyle='#8ccfb3';ctx.fillRect(x-56,y-7,112,7);poly([[x+56,y],[x+72,y-10],[x+72,y-17],[x+56,y-7]],'#71b096');
+ // roof slab
+ poly([[x-60,y-82],[x+60,y-82],[x+78,y-94],[x-42,y-94]],'#f2fffa');poly([[x+60,y-82],[x+78,y-94],[x+78,y-89],[x+60,y-77]],'#8fc7b0');ctx.fillStyle='#bfe9d8';ctx.fillRect(x-60,y-82,120,5);
+ // sign board with thickness
+ ctx.fillStyle='#b98352';ctx.fillRect(x-30,y-100,5,14);ctx.fillRect(x+25,y-100,5,14);
+ rr(x-42,y-121,84,28,8);ctx.fillStyle='#d9609c';ctx.fill();rr(x-42,y-124,84,28,8);ctx.fillStyle=vgrad(y-124,y-96,'#ffa6d2','#ff7fbc');ctx.fill();
+ ctx.fillStyle='#fff';ctx.font='bold 17px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SHOP',x,y-110);
+ // window with Berry
+ ctx.fillStyle='rgba(40,90,70,.18)';ctx.fillRect(x-44,y-50,52,36);ctx.fillStyle='#fff';ctx.fillRect(x-47,y-53,54,38);ctx.fillStyle=vgrad(y-50,y-18,'#dff6ff','#86cdee');ctx.fillRect(x-44,y-50,48,32);emoji('🦝',x-20,y-32,26);
+ ctx.fillStyle='rgba(255,255,255,.45)';ctx.beginPath();ctx.moveTo(x-44,y-38);ctx.lineTo(x-32,y-50);ctx.lineTo(x-26,y-50);ctx.lineTo(x-44,y-32);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#d9709f';ctx.fillRect(x-49,y-17,58,4);
+ // door
+ ctx.fillStyle='#4f7263';ctx.fillRect(x+14,y-47,28,47);ctx.fillStyle=hgrad(x+17,x+39,'#86ab9b','#5e8676');ctx.fillRect(x+17,y-44,22,44);ell(x+34,y-22,2.4,2.4,'#ffd84d');
+ // striped awning (rounded, lighter on top)
+ for(let i=0;i<7;i++){const x0=x-64+i*18.3,x1=x0+18.3;ctx.fillStyle=i%2?'#fff':'#ff8cc6';ctx.beginPath();ctx.moveTo(x0+4,y-84);ctx.lineTo(x1+4,y-84);ctx.lineTo(x1,y-66);ctx.arc(x0+9.15,y-66,9.15,0,Math.PI);ctx.closePath();ctx.fill()}
+ ctx.fillStyle=vgrad(y-84,y-56,'rgba(255,255,255,.3)','rgba(120,20,70,.18)');ctx.beginPath();ctx.moveTo(x-60,y-84);ctx.lineTo(x+68,y-84);ctx.lineTo(x+64,y-66);ctx.lineTo(x-64,y-66);ctx.closePath();ctx.fill();
+ poly([[x+64,y-66],[x+68,y-84],[x+78,y-90],[x+74,y-72]],'#e0679f');
+ ctx.fillStyle='rgba(60,110,90,.18)';ctx.fillRect(x-56,y-57,112,5)}
+
+function drawSpring(){const{x,y,rx,ry}=SPRING,I=ISL();
+ const stone=i=>{const a=i/24*Math.PI*2,sx=x+Math.cos(a)*(rx+8),sy=y+Math.sin(a)*(ry+7);ell(sx+1,sy+3.5,13,9,'#8f857c');const g=ctx.createRadialGradient(sx-4,sy-4,1,sx,sy,14);g.addColorStop(0,i%2?'#ddd5cd':'#ece5de');g.addColorStop(1,i%2?'#aaa198':'#bdb4ab');ell(sx,sy,13,9,g)};
+ for(let i=12;i<24;i++)stone(i);// back half
+ ell(x,y,rx,ry,'#3aa6a6');ell(x,y+5,rx-3,ry-6,'#5cc9c3');
+ const wg=ctx.createRadialGradient(x-20,y-8,4,x,y+4,rx);wg.addColorStop(0,'#b9f5ee');wg.addColorStop(1,'rgba(110,215,208,.2)');ell(x,y+5,rx-8,ry-10,wg);
+ ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;for(let i=0;i<3;i++){const ph=(time*.5+i/3)%1;ctx.globalAlpha=1-ph;ctx.beginPath();ctx.ellipse(x-18+i*22,y+4+i*5,6+ph*16,2+ph*5,0,0,Math.PI*2);ctx.stroke()}ctx.globalAlpha=1;
+ for(let i=0;i<Math.min(I.yuzu||0,12);i++){const a=i*2.4+time*.15,r=.3+((i*37)%10)/18;emoji('🍋',x+Math.cos(a)*rx*r*.8,y+Math.sin(a)*ry*r*.7,14)}
+ for(let i=0;i<12;i++)stone(i);// front half overlaps the water edge
  for(let i=0;i<6;i++){const ph=(time*.3+i/6)%1;ell(x-40+i*16+Math.sin(time+i)*6,y-12-ph*70,7+ph*12,5+ph*9,`rgba(255,255,255,${(.55*(1-ph)).toFixed(2)})`)}
- ell(x+rx+34,y+4,8,3,'rgba(0,0,0,.15)');ctx.fillStyle='#a8744a';ctx.fillRect(x+rx+32,y-26,4,30);ctx.fillStyle='#fff';ctx.fillRect(x+rx+20,y-40,28,20);emoji('♨️',x+rx+34,y-30,16)}
-function drawTree(t,i){const sx=t.shake>0?Math.sin(t.shake*50)*4:0;ell(t.x,t.y+2,34,9,'rgba(0,0,0,.15)');ctx.fillStyle='#96603a';ctx.fillRect(t.x-7,t.y-34,14,34);const x=t.x+sx,y=t.y-62;ell(x-22,y+8,26,24,'#4fb35f');ell(x+22,y+8,26,24,'#4fb35f');ell(x,y-6,34,30,'#5fc46e');ell(x-8,y-14,14,10,'#7ad487');
- const n=S.trees[i];[[-18,6],[16,2],[0,-14]].slice(0,n).forEach(([ox,oy])=>emoji(ITEMS[t.f].e,x+ox,y+oy,20))}
-function drawNeighbor(n){const s=S.neigh[n.id],moving=Math.hypot(n.tx-n.x,n.ty-n.y)>2,b=moving?-Math.abs(Math.sin(time*9))*4:Math.sin(time*2+n.hx)*1.5;
+}
+function drawSpringSign(){const{x,y,rx}=SPRING,sx=x+rx+34;shadow(sx+2,y+4,10,4);ctx.fillStyle=hgrad(sx-2,sx+2,'#c08a5a','#8a5a36');ctx.fillRect(sx-2,y-26,4,30);ctx.fillStyle='#e3c9d6';ctx.fillRect(sx-12,y-38,28,20);ctx.fillStyle='#fff';ctx.fillRect(sx-14,y-40,28,20);emoji('♨️',sx,y-30,16)}
+
+function drawTree(t,i){const sx=t.shake>0?Math.sin(t.shake*50)*4:0,x0=t.x,y0=t.y;shadow(x0+12,y0+3,48,13);
+ ctx.fillStyle=hgrad(x0-9,x0+9,'#c08a58','#6e4222');ctx.beginPath();ctx.moveTo(x0-11,y0+1);ctx.quadraticCurveTo(x0-6,y0-6,x0-6,y0-20);ctx.lineTo(x0-5,y0-42);ctx.lineTo(x0+5,y0-42);ctx.lineTo(x0+6,y0-20);ctx.quadraticCurveTo(x0+6,y0-6,x0+11,y0+1);ctx.closePath();ctx.fill();
+ ctx.strokeStyle='rgba(80,40,15,.35)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x0-1,y0-6);ctx.lineTo(x0+1,y0-18);ctx.moveTo(x0+2,y0-24);ctx.lineTo(x0+1,y0-34);ctx.stroke();
+ const behind=P.y<y0-4&&P.y>y0-120&&Math.abs(P.x-x0)<52;if(behind)ctx.globalAlpha=.6;
+ const x=x0+sx,y=y0-62;
+ ell(x+2,y+20,38,13,'#3a8747');
+ const lobe=(lx,ly,rx2,ry2,c0,c1)=>{const g=ctx.createRadialGradient(lx-rx2*.35,ly-ry2*.45,1,lx,ly,Math.max(rx2,ry2));g.addColorStop(0,c0);g.addColorStop(1,c1);ell(lx,ly,rx2,ry2,g)};
+ lobe(x-24,y+6,24,22,'#6fcf7a','#3f9a4e');lobe(x+24,y+6,24,22,'#5fbf6c','#34863f');
+ lobe(x,y-6,35,31,'#93e397','#46a553');
+ lobe(x-14,y+14,20,15,'#7ed686','#43a050');lobe(x+15,y+15,20,14,'#68c373','#378c43');
+ ell(x-12,y-20,12,7,'rgba(255,255,255,.28)');ell(x-20,y-10,5,3.5,'rgba(255,255,255,.22)');
+ ctx.globalAlpha=1;
+ const n=ISL().trees[i]||0;[[-18,6],[16,2],[0,-14]].slice(0,n).forEach(([ox,oy])=>emoji(ITEMS[t.f].e,x+ox,y+oy,20))}
+
+function drawNeighbor(n){const moving=Math.hypot(n.tx-n.x,n.ty-n.y)>2,b=moving?-Math.abs(Math.sin(time*9))*4:Math.sin(time*2+n.hx)*1.5;
  if(n.soak){ctx.save();ctx.beginPath();ctx.rect(n.x-40,n.y-120,80,118);ctx.clip();ctx.translate(n.x,n.y);ctx.scale(-n.face,1);emoji(n.e,0,-8+Math.sin(time*2+n.hx),38);ctx.restore();ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(n.x,n.y-2,20,5,0,0,Math.PI*2);ctx.stroke();return}
- ell(n.x,n.y,20,6,'rgba(0,0,0,.18)');ctx.save();ctx.translate(n.x,n.y);ctx.scale(-n.face,1);emoji(n.e,0,-22+b,42);ctx.restore();
- if(!s.done&&s.req){ell(n.x+22,n.y-60,13,13,'#fff');emoji('❗',n.x+22,n.y-60,16)}
- ctx.font='bold 12px sans-serif';ctx.textAlign='center';const w=ctx.measureText(n.n).width+12;ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(n.x-w/2,n.y+6,w,16);ctx.fillStyle='#c2427f';ctx.textBaseline='middle';ctx.fillText(n.n,n.x,n.y+14)}
-function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#7fd3f0';ctx.fillRect(0,0,W,H);
+ shadow(n.x+2,n.y+1,22+b*.5,7);ctx.save();ctx.translate(n.x,n.y);const sq=moving?Math.cos(time*18)*.05:0;ctx.scale(-n.face*(1+sq),1-sq);emoji(n.e,0,-22+b,42);ctx.restore();
+ if(!ONV()){const s=S.neigh[n.id];if(!s.done&&s.req){const bb=Math.sin(time*4)*1.5;ell(n.x+23,n.y-58+bb,13,13,'rgba(150,40,90,.18)');ell(n.x+22,n.y-60+bb,13,13,'#fff');emoji('❗',n.x+22,n.y-60+bb,16)}}
+ ctx.font='bold 12px sans-serif';ctx.textAlign='center';const w=ctx.measureText(n.n).width+12;ctx.fillStyle='rgba(255,255,255,.88)';rr(n.x-w/2,n.y+6,w,16,8);ctx.fill();ctx.fillStyle='#c2427f';ctx.textBaseline='middle';ctx.fillText(n.n,n.x,n.y+14)}
+
+function drawGift(x,y,col,bob){const c=WRAPS[col]||WRAPS.pink;shadow(x+3,y+2,17,5);const Y=y+bob;
+ ctx.fillStyle=c;ctx.fillRect(x-11,Y-20,22,18);poly([[x+11,Y-20],[x+17,Y-25],[x+17,Y-7],[x+11,Y-2]],shade(c,-.25));poly([[x-11,Y-20],[x-5,Y-25],[x+17,Y-25],[x+11,Y-20]],shade(c,.3));
+ ctx.fillStyle='#fff';ctx.fillRect(x-2,Y-20,4,18);poly([[x-2,Y-20],[x+4,Y-25],[x+8,Y-25],[x+2,Y-20]],'#fff');poly([[x-8,Y-22.5],[x+14,Y-22.5],[x+14,Y-21],[x-8,Y-21]],'rgba(255,255,255,.9)');
+ ell(x-2,Y-28,5,3.5,'#fff');ell(x+8,Y-28,5,3.5,'#fff');ell(x+3,Y-26,2.5,2.5,shade(c,-.1));ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(x-11,Y-20,22,3)}
+
+function drawSign(){const{x,y}=SIGN;shadow(x+5,y+1,26,6);
+ ctx.fillStyle=hgrad(x-22,x-16,'#c08a5a','#7a4c2c');ctx.fillRect(x-22,y-34,6,34);ctx.fillStyle=hgrad(x+16,x+22,'#c08a5a','#7a4c2c');ctx.fillRect(x+16,y-34,6,34);
+ rr(x-40,y-58,80,28,8);ctx.fillStyle='#e08ab4';ctx.fill();rr(x-40,y-61,80,28,8);ctx.fillStyle=vgrad(y-61,y-33,'#ffffff','#ffe3f0');ctx.fill();
+ ctx.fillStyle='#d94b90';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('CAPY AIR',x+9,y-47);emoji('✈️',x-27,y-47,13);
+ if(MP.role==='host'&&MP.hostState==='open'){const wv=Math.sin(time*5)*3;ctx.fillStyle='#9a6a44';ctx.fillRect(x+26,y-86,3,56);poly([[x+29,y-86],[x+52,y-80+wv*.3],[x+29,y-72]],'#ff5fa8');emoji('✨',x+44,y-92+Math.sin(time*3)*2,12)}}
+function drawPlane(){const x=PLANE.x,y=PLANE.y,b=Math.sin(time*1.4)*1.6,Y=y+b;
+ ell(x+6,y+5,60,10,'rgba(20,70,120,.2)');ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x,y+2,56+Math.sin(time*2)*3,8,0,0,Math.PI*2);ctx.stroke();
+ const pont=(yy,a)=>{rr(x-46,yy-8,84,9,4.5);ctx.fillStyle=a?'#dfe8f2':vgrad(yy-8,yy+1,'#ffffff','#cfdbe8');ctx.fill()};
+ pont(Y-6,1);ctx.strokeStyle='#b8b8cc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-20,Y-4);ctx.lineTo(x-16,Y-24);ctx.moveTo(x+14,Y-4);ctx.lineTo(x+10,Y-24);ctx.stroke();
+ poly([[x+28,Y-40],[x+50,Y-66],[x+60,Y-64],[x+52,Y-34]],'#f06aa8');poly([[x+30,Y-38],[x+50,Y-62],[x+55,Y-61],[x+46,Y-38]],'#ff9ccb');emoji('💗',x+50,Y-52,11);
+ const g=ctx.createRadialGradient(x-14,Y-46,3,x,Y-32,46);g.addColorStop(0,'#ffd1e6');g.addColorStop(.55,'#ff8cc6');g.addColorStop(1,'#d9559a');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(x,Y-32,46,15,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.ellipse(x+4,Y-29,40,3,0,0,Math.PI*2);ctx.fill();
+ [-10,4,18].forEach(wx=>{ell(x+wx,Y-38,4.5,4.5,'#fff');ell(x+wx,Y-38,3.2,3.2,'#8fd3f0');ell(x+wx-1,Y-39,1.1,1.1,'#fff')});ell(x-30,Y-41,8,6,'#bfefff');ell(x-32,Y-43,3,2,'#fff');
+ ell(x-2,Y-50,42,5,'rgba(150,30,80,.25)');const wg=ctx.createLinearGradient(0,Y-58,0,Y-49);wg.addColorStop(0,'#ffe4f1');wg.addColorStop(1,'#ff9fcf');ctx.fillStyle=wg;rr(x-44,Y-58,84,8,4);ctx.fill();
+ ell(x-48,Y-32,4,5,'#ffd84d');ell(x-49,Y-32,3,18*Math.abs(Math.cos(time*25))+3,'rgba(110,70,90,.45)');
+ pont(Y+2,0)}
+
+// ---------- RENDER ----------
+function nameTag(x,y,name,col){ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(name).width+26;ctx.fillStyle='rgba(150,40,90,.2)';rr(x-w/2+1.5,y-9.5+2,w,19,9.5);ctx.fill();ctx.fillStyle='#fff';rr(x-w/2,y-9.5,w,19,9.5);ctx.fill();ctx.strokeStyle=(CAPY[col]||CAPY.pink).d;ctx.lineWidth=2;ctx.stroke();ell(x-w/2+10,y,4.5,4.5,(CAPY[col]||CAPY.pink).b);ctx.fillStyle='#c2427f';ctx.fillText(name,x+5,y+.5)}
+function emoBubble(x,y,e,age){const T=2.6;if(age>T)return;const s=age<.15?age/.15*1.25:age<.3?1.25-(age-.15)/.15*.25:1,a=age>T-.4?(T-age)/.4:1;ctx.save();ctx.globalAlpha=a;ctx.translate(x,y);ctx.scale(s,s);
+ ctx.fillStyle='rgba(150,40,90,.18)';ctx.beginPath();ctx.ellipse(2,-22,24,21,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(0,-24,24,21,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(-6,-6);ctx.lineTo(0,4);ctx.lineTo(6,-6);ctx.fill();ctx.strokeStyle='#ff8cc6';ctx.lineWidth=2.5;ctx.beginPath();ctx.ellipse(0,-24,24,21,0,0,Math.PI*2);ctx.stroke();
+ emoji(e,0,-24,28);ctx.restore()}
+function render(){if(!ISL_CV)buildIsland();
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#5fbfe6';ctx.fillRect(0,0,W,H);
  ctx.setTransform(DPR*SCALE,0,0,DPR*SCALE,DPR*(W/2-cam.x*SCALE),DPR*(H/2-cam.y*SCALE));
- ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=3;for(let i=0;i<60;i++){const wx=((i*173)%1700)-150+Math.sin(time*.6+i)*14,wy=((i*97)%1400)-150;ctx.beginPath();ctx.arc(wx,wy,10,Math.PI*1.15,Math.PI*1.85);ctx.stroke()}
- ctx.fillStyle='rgba(255,255,255,.6)';islandPath(SRX,SRY,1.03+Math.sin(time*1.5)*.006);ctx.fill();
- ctx.fillStyle='#f9e4b7';islandPath(SRX,SRY,1);ctx.fill();ctx.fillStyle='#8fd96f';islandPath(GRX,GRY,1);ctx.fill();ctx.fillStyle='#9fe07e';islandPath(GRX,GRY,.9);ctx.fill();
- FLOWERS.forEach(f=>{if(f.g){ctx.strokeStyle='#6cbf55';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(f.x-4,f.y);ctx.lineTo(f.x-6,f.y-7);ctx.moveTo(f.x,f.y);ctx.lineTo(f.x,f.y-9);ctx.moveTo(f.x+4,f.y);ctx.lineTo(f.x+6,f.y-7);ctx.stroke()}else{for(let k=0;k<5;k++){const a=k*1.2566;ell(f.x+Math.cos(a)*3.5,f.y+Math.sin(a)*3.5,3,3,f.c)}ell(f.x,f.y,2.2,2.2,'#ffd84d')}});
+ const vx0=cam.x-W/2/SCALE,vy0=cam.y-H/2/SCALE,vx1=cam.x+W/2/SCALE,vy1=cam.y+H/2/SCALE;
+ if(!WG){WG=ctx.createRadialGradient(CX,CY+30,420,CX,CY+30,1050);WG.addColorStop(0,'#96e6f5');WG.addColorStop(.3,'#72ccef');WG.addColorStop(1,'#3c93d2')}
+ ctx.fillStyle=WG;ctx.fillRect(vx0-4,vy0-4,vx1-vx0+8,vy1-vy0+8);
+ ctx.lineWidth=3;ctx.lineCap='round';for(let i=0;i<70;i++){const wx=((i*173)%1700)-150+Math.sin(time*.6+i)*14,wy=((i*97)%1400)-150;if(wx<vx0-20||wx>vx1+20||wy<vy0-20||wy>vy1+20)continue;const a=.2+.4*(.5+.5*Math.sin(time*1.7+i*1.3));ctx.strokeStyle=`rgba(255,255,255,${a.toFixed(2)})`;ctx.beginPath();ctx.arc(wx,wy,10,Math.PI*1.15,Math.PI*1.85);ctx.stroke()}
+ // shoreline foam hugging the cliff base (south) and the beach edge (north)
+ const fk=1.012+Math.sin(time*1.5)*.006,ph=(time*.22)%1;ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=6;islandPath(SRX,SRY,fk,24);ctx.stroke();islandPath(SRX,SRY,fk,0);ctx.stroke();
+ ctx.strokeStyle=`rgba(255,255,255,${(.55*(1-ph)).toFixed(2)})`;ctx.lineWidth=3;islandPath(SRX,SRY,1.03+ph*.06,24);ctx.stroke();islandPath(SRX,SRY,1.03+ph*.06,0);ctx.stroke();
+ ctx.drawImage(ISL_CV,IB.x,IB.y,IB.w,IB.h);
  drawSpring();
- S.presents.forEach((a,i)=>{const p=presentPos(i);ell(p.x,p.y+2,14,4,'rgba(0,0,0,.15)');emoji('🎁',p.x,p.y-12+Math.sin(time*3+i)*2,28);if(Math.sin(time*4+i)>.7)emoji('✨',p.x+14,p.y-26,12)});
- const ents=[];TREES.forEach((t,i)=>ents.push([t.y,()=>drawTree(t,i)]));ents.push([HOUSE.y,()=>drawHouse(HOUSE.x,HOUSE.y)]);ents.push([SHOP.y,()=>drawShop(SHOP.x,SHOP.y)]);NEIGH.forEach(n=>ents.push([n.y,()=>drawNeighbor(n)]));ents.push([P.y,()=>{if(P.soak){ctx.save();ctx.beginPath();ctx.rect(P.x-80,P.y-400,160,398);ctx.clip();drawCapy(P.x,P.y+17,P.face,false,0);ctx.restore();ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(P.x+6,P.y-1,30,6,0,0,Math.PI*2);ctx.stroke()}else drawCapy(P.x,P.y,P.face,P.moving,P.walk)}]);
- S.spring.forEach((id,i)=>{if(id){const d=decoPos(i);ents.push([d.y,()=>{ell(d.x,d.y+2,14,4,'rgba(0,0,0,.15)');emoji(ITEMS[id].e,d.x,d.y-14,30)}])}});
- bugs.forEach(b=>ents.push([b.y,()=>{const it=ITEMS[b.t],h=it.fly?14+Math.sin(b.ph*4)*4:4;ell(b.x,b.y,7,2.5,'rgba(0,0,0,.15)');ctx.save();ctx.translate(b.x,b.y-h);if(b.vx>0)ctx.scale(-1,1);emoji(it.e,0,-6,it.fly?24:20);ctx.restore()}]));
+ const I=ISL(),ents=[];
+ TREES.forEach((t,i)=>ents.push([t.y,()=>drawTree(t,i)]));ents.push([HOUSE.y,()=>drawHouse(HOUSE.x,HOUSE.y)]);ents.push([SHOP.y,()=>drawShop(SHOP.x,SHOP.y)]);ents.push([SPRING.y,drawSpringSign]);ents.push([SIGN.y,drawSign]);ents.push([PLANE.y,drawPlane]);
+ NEIGH.forEach(n=>ents.push([n.y,()=>drawNeighbor(n)]));
+ const myCol=ONV()?S.vcolor:'pink',tags=[];
+ const drawPl=(x,y,face,moving,walk,soak,col,stack)=>{if(soak){ctx.save();ctx.beginPath();ctx.rect(x-80,y-400,160,398);ctx.clip();drawCapy(x,y+17,face,false,0,col,stack,true);ctx.restore();ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x+6,y-1,30,6,0,0,Math.PI*2);ctx.stroke()}else drawCapy(x,y,face,moving,walk,col,stack,false)};
+ ents.push([P.y,()=>drawPl(P.x,P.y,P.face,P.moving,P.walk,P.soak,myCol,S.stack)]);
+ const mpOn=MP.role==='visitor'||MP.role==='host';
+ if(mpOn){tags.push({x:P.x,y:P.y,top:capyTop(S.stack.length,P.soak),name:S.name,col:myCol,id:'me'});
+  MP.players.forEach(r=>{if(!r.buf.length)return;ents.push([r.y,()=>drawPl(r.x,r.y,r.face,r.moving,r.walk,r.soak,r.color,r.stack)]);tags.push({x:r.x,y:r.y,top:capyTop(r.stack.length,r.soak),name:r.name,col:r.color,id:r.id})})}
+ (I.spring||[]).forEach((id,i)=>{if(id&&ITEMS[id]){const d=decoPos(i);ents.push([d.y,()=>{shadow(d.x+2,d.y+1,17,5);emoji(ITEMS[id].e,d.x,d.y-14,30)}])}});
+ presList().forEach((a,i)=>{const p=posAt(a);ents.push([p.y,()=>{shadow(p.x+2,p.y+2,17,5);emoji('🎁',p.x,p.y-12+Math.sin(time*3+i)*2,28);if(Math.sin(time*4+i)>.7)emoji('✨',p.x+14,p.y-26,12)}])});
+ fpList().forEach((f,i)=>{const p=posAt(f.a);ents.push([p.y,()=>{drawGift(p.x,p.y,f.c,Math.sin(time*3+i+1)*1.5);if(Math.sin(time*4+i+2)>.6)emoji('💖',p.x+16,p.y-30,11)}])});
+ bugs.forEach(b=>ents.push([b.y,()=>{const it=ITEMS[b.t],h=it.fly?14+Math.sin(b.ph*4)*4:4;shadow(b.x+1,b.y+1,it.fly?7:9,it.fly?2.5:3);ctx.save();ctx.translate(b.x,b.y-h);if(b.vx>0)ctx.scale(-1,1);emoji(it.e,0,-6,it.fly?24:20);ctx.restore()}]));
  ents.sort((a,b)=>a[0]-b[0]).forEach(e=>e[1]());
  if(P.moving&&!P.act){ctx.strokeStyle='rgba(255,95,168,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(P.tx,P.ty,10,4,0,0,Math.PI*2);ctx.stroke()}
- parts.forEach(p=>{ctx.globalAlpha=Math.min(1,p.life);emoji(p.e,p.x,p.y,18);ctx.globalAlpha=1})}
-let last=performance.now();function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);render();requestAnimationFrame(loop)}
+ // names + emote bubbles always on top so everyone can read them
+ tags.forEach(t=>{const ty=t.y+t.top-8;nameTag(t.x,ty,t.name||'Friend',t.col);const em=MP.emo.get(t.id);if(em)emoBubble(t.x,ty-14,em.e,time-em.t)});
+ parts.forEach(p=>{ctx.globalAlpha=Math.min(1,p.life);emoji(p.e,p.x,p.y,18);ctx.globalAlpha=1});
+ // soft ambient light: warm from the top-left, cooler bottom-right
+ ctx.setTransform(DPR,0,0,DPR,0,0);if(!AMB){AMB=ctx.createLinearGradient(0,0,W,H);AMB.addColorStop(0,'rgba(255,246,215,.16)');AMB.addColorStop(.5,'rgba(255,255,255,0)');AMB.addColorStop(1,'rgba(110,60,150,.12)')}ctx.fillStyle=AMB;ctx.fillRect(0,0,W,H)}
+let last=performance.now();function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;try{update(dt);render()}catch(e){console.error(e)}requestAnimationFrame(loop)}
+
+// ---------- MULTIPLAYER: "Capy Air" island visits (PeerJS / WebRTC) ----------
+const PEER_OPTS={debug:0,config:{iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']},{urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'}],sdpSemantics:'unified-plan'}};
+const PEER_PREFIX='capyisland-',MAX_VIS=3;
+const peerOK=()=>typeof window.Peer==='function';
+const OFFLINE_MSG="The seaplane radio isn't working right now. 📡<br>Visiting needs the internet.<br>You can still play on your island! 🏝️";
+function genCode(){const a=new Uint32Array(5);(window.crypto||{getRandomValues:x=>x.map(()=>Math.random()*1e9)}).getRandomValues(a);return Array.from(a,v=>CODE_ABC[v%CODE_ABC.length]).join('')}
+const num=(v,d,lo=-200,hi=1700)=>typeof v==='number'&&isFinite(v)?Math.max(lo,Math.min(hi,v)):d;
+const cleanName=v=>String(v==null?'':v).replace(/[\u0000-\u001f<>&"'`\\]/g,'').trim().slice(0,12)||'Friend';
+const cleanColor=v=>CAPY[v]?v:'caramel';
+const cleanStack=v=>Array.isArray(v)?v.filter(x=>x==='orange'||x==='yuzu').slice(0,15):[];
+function cleanIsland(i){i=i||{};const furn=x=>ITEMS[x]&&ITEMS[x].k==='furn'?x:null;return{name:cleanName(i.name),day:num(i.day,1,0,1e6),
+ trees:TREES.map((_,k)=>Math.round(num(Array.isArray(i.trees)?i.trees[k]:3,3,0,3))),spring:Array.from({length:6},(_,k)=>furn(Array.isArray(i.spring)?i.spring[k]:null)),yuzu:Math.round(num(i.yuzu,0,0,50)),
+ presents:(Array.isArray(i.presents)?i.presents:[]).filter(a=>typeof a==='number'&&isFinite(a)).slice(0,6),fp:(Array.isArray(i.fp)?i.fp:[]).filter(f=>f&&typeof f.a==='number'&&isFinite(f.a)).slice(0,12).map(f=>({a:f.a,c:WRAPS[f.c]?f.c:'pink'}))}}
+function snapshot(){return{name:S.name,day:S.day,trees:S.trees.slice(),spring:S.spring.slice(),yuzu:S.yuzu,presents:S.presents.slice(0,6),fp:S.fpresents.slice(0,12).map(f=>({a:f.a,c:f.c}))}}
+function addPlayer(id,name,color,stack,x,y){const r={id,name,color,stack,buf:[],x,y,face:1,walk:0,moving:false,soak:false};MP.players.set(id,r);return r}
+function rpPush(r,a){if(!r)return;r.buf.push({t:performance.now(),x:a[1],y:a[2],f:a[3]<0?-1:1,m:!!a[4],s:!!a[5]});if(r.buf.length>24)r.buf.shift()}
+function rpUpdate(r,dt){const b=r.buf;if(!b.length)return;const rt=performance.now()-130;let s=b[b.length-1],x=s.x,y=s.y;
+ if(b[0].t>=rt){x=b[0].x;y=b[0].y;s=b[0]}else for(let i=b.length-1;i>0;i--){if(b[i-1].t<=rt){const A=b[i-1],B=b[i],k=Math.min(1,(rt-A.t)/((B.t-A.t)||1));x=A.x+(B.x-A.x)*k;y=A.y+(B.y-A.y)*k;s=k<.5?A:B;break}}
+ r.moving=s.m||Math.hypot(x-r.x,y-r.y)>.4;if(r.moving)r.walk+=dt*12;r.x=x;r.y=y;r.face=s.f;r.soak=s.s}
+function showEmo(id,i){if(!EMOTES[i])return;MP.emo.set(id,{e:EMOTES[i],t:time});SND.pop()}
+function cleanupPeer(){clearTimeout(MP.to);const c=MP.conn,p=MP.peer;MP.conn=null;MP.peer=null;try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}}
+function mpUI(){const r=MP.role,open=r==='host'&&MP.hostState==='open';document.body.classList.toggle('mp',r==='host'||r==='visitor');
+ $('#bHome').classList.toggle('hidden',r==='visitor');$('#bLeave').classList.toggle('hidden',r!=='visitor');$('#bEmo').classList.toggle('hidden',!(r==='visitor'||open));if(!(r==='visitor'||open))$('#emobar').classList.add('hidden');
+ const pill=$('#mppill');if(r==='host'){pill.classList.remove('hidden');pill.innerHTML=open?`🛬 Open · <b>${MP.code}</b> · 👥 ${MP.vis.size}`:'🛬 Opening...'}else if(r==='visitor'&&MP.island){pill.classList.remove('hidden');pill.innerHTML=`✈️ ${esc(MP.island.name)}'s island`}else pill.classList.add('hidden');hud()}
+function refreshDock(){if(MP.dockOpen&&MP.dockView!=='visit')openDock(MP.dockView)}
+
+// net tick ~12x/sec
+function mpUpdate(dt){if(MP.role!=='visitor'&&MP.role!=='host')return;MP.players.forEach(r=>rpUpdate(r,dt));
+ MP.acc+=dt;if(MP.acc<1/12)return;MP.acc=0;const now=performance.now(),me=[Math.round(P.x),Math.round(P.y),P.face,P.moving?1:0,P.soak?1:0];
+ if(MP.role==='visitor'){if(MP.conn&&MP.conn.open)try{MP.conn.send({t:'p',x:me[0],y:me[1],f:me[2],m:me[3],s:me[4]})}catch(e){}if(now-MP.lastRx>12000)returnHome('lost');return}
+ if(!MP.vis.size)return;const all=[['host',...me]];MP.vis.forEach(v=>{if(v.last)all.push(v.last)});const nb=NEIGH.map(n=>[Math.round(n.x),Math.round(n.y),n.face,n.soak?1:0]);
+ let isl=null;if(MP.dirty&&now-MP.islT>800){MP.dirty=false;MP.islT=now;const s=snapshot(),j=JSON.stringify(s);if(j!==MP.islJ){MP.islJ=j;isl=s}}
+ MP.vis.forEach(v=>{if(now-v.lastRx>15000){dropVisitor(v.id,'lost');return}if(!v.conn.open)return;try{v.conn.send({t:'ps',l:all.filter(a=>a[0]!==v.id),nb});if(isl)v.conn.send({t:'isl',isl})}catch(e){}})}
+
+// ----- HOST -----
+function broadcast(m,except){MP.vis.forEach(v=>{if(v.id!==except&&v.conn.open)try{v.conn.send(m)}catch(e){}})}
+window.openIsland=()=>{if(!peerOK()){dockMsg(OFFLINE_MSG);return}if(MP.role)return;MP.role='host';MP.hostState='opening';MP.vis.clear();MP.players.clear();MP.emo.clear();MP.tries=0;MP.islJ='';hostStart();mpUI();openDock()};
+function hostStart(){MP.code=genCode();let p;try{p=new Peer(PEER_PREFIX+MP.code,PEER_OPTS)}catch(e){hostFail();return}MP.peer=p;
+ MP.to=setTimeout(()=>{if(MP.peer===p&&MP.hostState==='opening')hostFail()},20000);
+ p.on('open',()=>{if(MP.peer!==p)return;clearTimeout(MP.to);MP.hostState='open';mpUI();refreshDock();SND.yay();if(!MP.dockOpen)toast(`Your island is open! ✈️<br>Code: <b>${MP.code}</b>`,3500)});
+ p.on('connection',c=>{if(MP.peer===p)hostConn(c);else try{c.close()}catch(e){}});
+ p.on('error',e=>{if(MP.peer!==p)return;const t=e&&e.type;if(t==='unavailable-id'&&MP.tries++<3){MP.peer=null;try{p.destroy()}catch(x){}hostStart();refreshDock();return}if(MP.hostState==='opening')hostFail()});
+ p.on('disconnected',()=>{setTimeout(()=>{try{if(MP.peer===p&&!p.destroyed&&p.disconnected)p.reconnect()}catch(e){}},2000)})}
+function hostFail(){cleanupPeer();MP.role=null;MP.hostState=null;MP.code=null;mpUI();dockMsg("The seaplane tower can't open right now. 📡<br>Check the internet and try again!")}
+function hostConn(conn){let v=null;
+ conn.on('data',d=>{if(!d||typeof d!=='object'||MP.role!=='host')return;
+  if(d.t==='hello'&&!v){if(MP.vis.size>=MAX_VIS){try{conn.send({t:'full'})}catch(e){}setTimeout(()=>{try{conn.close()}catch(e){}},600);return}
+   v={id:String(conn.peer),conn,name:cleanName(d.name),color:cleanColor(d.color),stack:cleanStack(d.stack),lastRx:performance.now(),signed:false,gave:false,last:null};
+   v.last=[v.id,DOCK.x,DOCK.y,1,0,0];MP.vis.set(v.id,v);const r=addPlayer(v.id,v.name,v.color,v.stack,DOCK.x,DOCK.y);rpPush(r,v.last);
+   const pl=[{id:'host',name:S.name,color:'pink',stack:S.stack.slice(0,15),x:Math.round(P.x),y:Math.round(P.y)}];MP.vis.forEach(o=>{if(o!==v)pl.push({id:o.id,name:o.name,color:o.color,stack:o.stack,x:o.last[1],y:o.last[2]})});
+   try{conn.send({t:'snap',me:v.id,isl:snapshot(),pl,nb:NEIGH.map(n=>[Math.round(n.x),Math.round(n.y),n.face,n.soak?1:0])})}catch(e){}
+   broadcast({t:'join',id:v.id,name:v.name,color:v.color,stack:v.stack,x:DOCK.x,y:DOCK.y},v.id);
+   toast(`🛬 ${esc(v.name)} flew in to visit! 💕`,3000);SND.yay();mpUI();refreshDock();return}
+  if(!v||!MP.vis.has(v.id))return;v.lastRx=performance.now();
+  if(d.t==='p'){v.last=[v.id,Math.round(num(d.x,v.last[1])),Math.round(num(d.y,v.last[2])),d.f<0?-1:1,d.m?1:0,d.s?1:0];rpPush(MP.players.get(v.id),v.last)}
+  else if(d.t==='emo'){const i=d.e|0;if(!EMOTES[i]||time-(v.emoT||-9)<.5)return;v.emoT=time;showEmo(v.id,i);broadcast({t:'emo',id:v.id,e:i},v.id)}
+  else if(d.t==='sign'){const i=d.s|0;if(v.signed||!STAMPS[i])return;v.signed=true;S.guestbook.push({n:v.name,c:v.color,s:STAMPS[i],d:todayKey()});S.guestbook=S.guestbook.slice(-50);save();try{conn.send({t:'ok',k:'sign'})}catch(e){}toast(`📝 ${esc(v.name)} signed your guestbook! ${STAMPS[i]}`,3000);refreshDock()}
+  else if(d.t==='gift'){if(v.gave||!WRAPS[d.c])return;v.gave=true;if(S.giftsPending.length<20){S.giftsPending.push({from:v.name,c:d.c,item:pick(GIFT_POOL)});save()}try{conn.send({t:'ok',k:'gift'})}catch(e){}toast(`🎁 ${esc(v.name)} left you a present!<br>It will be on your beach tomorrow.`,3500)}
+  else if(d.t==='bye')dropVisitor(v.id,'left')});
+ conn.on('close',()=>{if(v)dropVisitor(v.id,'left')});conn.on('error',()=>{if(v)dropVisitor(v.id,'left')})}
+function dropVisitor(id,why){const v=MP.vis.get(id);if(!v)return;MP.vis.delete(id);MP.players.delete(id);MP.emo.delete(id);
+ if(why==='home'){try{v.conn.send({t:'home'})}catch(e){}setTimeout(()=>{try{v.conn.close()}catch(e){}},800)}else try{v.conn.close()}catch(e){}
+ broadcast({t:'left',id});toast(why==='home'?`👋 ${esc(v.name)} is flying home.`:`🛫 ${esc(v.name)} flew home. Bye bye!`,2500);mpUI();refreshDock()}
+window.sendHome=id=>dropVisitor(id,'home');
+window.closeIsland=()=>{if(MP.role!=='host')return;broadcast({t:'closed'});const p=MP.peer,vs=[...MP.vis.values()];MP.peer=null;MP.conn=null;clearTimeout(MP.to);
+ setTimeout(()=>{vs.forEach(v=>{try{v.conn.close()}catch(e){}});try{p&&p.destroy()}catch(e){}},500);// destroying the Peer frees the code: it stops working
+ MP.vis.clear();MP.players.clear();MP.emo.clear();MP.role=null;MP.hostState=null;MP.code=null;mpUI();toast('Your island is closed. 🔒');refreshDock()};
+window.shareCode=()=>{const code=MP.code;if(!code)return;const text=`Come visit my Capy Island! 🏝️ My island code is ${code}`,url=location.origin+location.pathname+'?visit='+code;
+ if(navigator.share)navigator.share({title:'Capy Island',text,url}).catch(()=>{});else copyCode()};
+window.copyCode=()=>{const t=MP.code;if(!t)return;const ok=()=>toast('Copied! 📋 '+t),no=()=>toast('Your island code is <b>'+t+'</b>',3500);try{navigator.clipboard.writeText(t).then(ok,no)}catch(e){no()}};
+
+// ----- VISITOR -----
+window.visitFriend=code=>{code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length!==5||[...code].some(ch=>!CODE_ABC.includes(ch))){toast('Island codes have 5 letters and numbers. 🏝️');return}
+ if(!peerOK()){dockMsg(OFFLINE_MSG);return}if(MP.role){toast(MP.role==='host'?'Close your island first! 🔒':'Already flying! ✈️');return}
+ save();MP.role='connecting';MP.code=code;
+ modal(`<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Flying to island <b>${code}</b>...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`);
+ let p;try{p=new Peer(PEER_OPTS)}catch(e){visitFail('net');return}MP.peer=p;MP.to=setTimeout(()=>visitFail(MP.conn?'nolink':'net'),20000);
+ p.on('open',()=>{if(MP.peer!==p||MP.role!=='connecting')return;const c=p.connect(PEER_PREFIX+code,{reliable:true,serialization:'json'});MP.conn=c;
+  c.on('open',()=>{try{c.send({t:'hello',v:1,name:S.name||'Friend',color:S.vcolor,stack:S.stack.slice(0,15)})}catch(e){}});
+  c.on('data',d=>{if(MP.conn===c)visitorData(d)});
+  setTimeout(()=>{const pc=c.peerConnection;if(pc)pc.addEventListener('iceconnectionstatechange',()=>{if(pc.iceConnectionState==='failed'&&MP.conn===c&&MP.role==='connecting')visitFail('nolink')})},0);
+  c.on('close',()=>{if(MP.conn!==c)return;if(MP.role==='visitor')returnHome('lost');else if(MP.role==='connecting')visitFail('notfound')});c.on('error',()=>{})});
+ p.on('error',e=>{if(MP.peer!==p)return;const t=e&&e.type;if(MP.role==='connecting')visitFail(t==='peer-unavailable'?'notfound':'net')});
+ p.on('disconnected',()=>{})};// losing the broker after connecting is fine; the data channel is direct
+window.cancelVisit=()=>{if(MP.role!=='connecting')return;cleanupPeer();MP.role=null;closeModal()};
+function visitFail(k){if(MP.role!=='connecting')return;cleanupPeer();MP.role=null;mpUI();
+ const m={notfound:"Hmm, we couldn't find that island. 🏝️<br>Check the code and try again!",full:"That island is full right now (3 visitors). 🛬<br>Try again a little later!",net:"The seaplane can't fly right now. 📡<br>Check the internet and try again!",nolink:"We found the island, but the seaplane couldn't land. 📡<br>Try again, or ask a grown-up to put both phones on the same Wi-Fi."}[k]||'Oops!';
+ modal(`<h2>✈️ Oh no!</h2><p class="c" style="font-size:18px">${m}</p><div class="row"><button class="btn" onclick="openDock('visit')">Try again</button><button class="btn white" onclick="closeModal()">OK</button></div>`)}
+function visitorData(d){if(!d||typeof d!=='object')return;MP.lastRx=performance.now();
+ if(MP.role==='connecting'){if(d.t==='snap')enterVisit(d);else if(d.t==='full')visitFail('full');return}
+ if(MP.role!=='visitor')return;
+ switch(d.t){
+ case 'ps':if(Array.isArray(d.l))d.l.forEach(a=>{if(!Array.isArray(a)||a[0]===MP.me)return;const r=MP.players.get(String(a[0]));if(r)rpPush(r,[a[0],num(a[1],r.x),num(a[2],r.y),a[3],a[4],a[5]])});applyNb(d.nb);break;
+ case 'join':if(d.id&&d.id!==MP.me&&!MP.players.has(String(d.id))){const r=addPlayer(String(d.id),cleanName(d.name),cleanColor(d.color),cleanStack(d.stack),num(d.x,DOCK.x),num(d.y,DOCK.y));rpPush(r,[r.id,r.x,r.y,1,0,0]);toast(`🛬 ${esc(r.name)} came to visit too!`)}break;
+ case 'left':{const r=MP.players.get(String(d.id));if(r){MP.players.delete(r.id);MP.emo.delete(r.id);toast(`🛫 ${esc(r.name)} flew home.`)}break}
+ case 'emo':if(MP.players.has(String(d.id)))showEmo(String(d.id),d.e|0);break;
+ case 'isl':MP.island=cleanIsland(d.isl);break;
+ case 'ok':if(d.k==='sign')toast(`📝 You signed ${hostName()}'s guestbook! 💕`,2600);else if(d.k==='gift')toast(`🎁 Your present will be on ${hostName()}'s beach tomorrow!`,3200);break;
+ case 'home':returnHome('home');break;
+ case 'closed':returnHome('closed');break}}
+function applyNb(nb){if(!Array.isArray(nb))return;NEIGH.forEach((n,i)=>{const a=nb[i];if(!Array.isArray(a))return;n.tx=num(a[0],n.x);n.ty=num(a[1],n.y);n.face=a[2]<0?-1:1;n.soak=!!a[3]})}
+function enterVisit(d){clearTimeout(MP.to);MP.role='visitor';MP.me=String(d.me||'');MP.island=cleanIsland(d.isl);MP.signed=false;MP.gave=false;MP.lastRx=performance.now();MP.players.clear();MP.emo.clear();
+ (Array.isArray(d.pl)?d.pl:[]).forEach(p=>{if(p&&p.id&&String(p.id)!==MP.me){const r=addPlayer(String(p.id),cleanName(p.name),p.id==='host'?'pink':cleanColor(p.color),cleanStack(p.stack),num(p.x,700),num(p.y,600));rpPush(r,[r.id,r.x,r.y,1,0,0])}});
+ MP.savedBugs=bugs;bugs=[];parts=[];clearTimeout(F&&F.t);F=null;$('#fish').classList.add('hidden');$('#house').classList.add('hidden');closeModal();closeTalk();busy=false;
+ P.soak=false;P.act=null;P.x=P.tx=DOCK.x+rnd(-24,24);P.y=P.ty=DOCK.y-6;P.face=1;cam.x=P.x;cam.y=P.y-40;
+ applyNb(d.nb);NEIGH.forEach(n=>{n.x=n.tx;n.y=n.ty});
+ mpUI();SND.yay();toast(`✈️ Welcome to ${hostName()}'s island!`,3000)}
+window.leaveIsland=()=>{if(MP.role!=='visitor')return;try{MP.conn&&MP.conn.open&&MP.conn.send({t:'bye'})}catch(e){}const c=MP.conn,p=MP.peer;MP.conn=null;MP.peer=null;setTimeout(()=>{try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}},300);returnHome('leave')};
+function returnHome(reason){if(MP.role!=='visitor')return;cleanupPeer();MP.role=null;MP.island=null;MP.players.clear();MP.emo.clear();MP.me=null;
+ closeTalk();closeModal();$('#emobar').classList.add('hidden');P.soak=false;P.act=null;P.x=P.tx=S.x;P.y=P.ty=S.y;cam.x=P.x;cam.y=P.y-40;bugs=MP.savedBugs||[];MP.savedBugs=null;
+ NEIGH.forEach(n=>{n.x=n.tx=n.hx;n.y=n.ty=n.hy;n.soak=false;n.wait=rnd(1,3)});mpUI();
+ const msg={home:'Time to fly home! ✈️<br>Thanks for visiting!',closed:'Your friend closed their island.<br>Time to fly home! ✈️',lost:'Oops! The seaplane lost its way. 📡<br>Flying home...'}[reason];
+ if(msg)modal(`<h2>🏝️ Back home</h2><div style="text-align:center;font-size:56px">🛩️</div><p class="c" style="font-size:18px">${msg}</p><div class="row"><button class="btn" onclick="closeModal()">OK</button></div>`);else toast(`Welcome home, ${esc(S.name)}! 🏝️`);
+ if(S.name&&newDay()){hud();setTimeout(()=>toast(`Good morning, ${esc(S.name)}! 🌞 A new day on Capy Island!`,3500),msg?100:2400)}}
+window.mpSign=i=>{if(MP.role!=='visitor'||MP.signed||!STAMPS[i])return;MP.signed=true;try{MP.conn.send({t:'sign',s:i})}catch(e){}SND.yay();openDock()};
+window.mpGift=c=>{if(MP.role!=='visitor'||MP.gave||!WRAPS[c])return;MP.gave=true;try{MP.conn.send({t:'gift',c})}catch(e){}SND.yay();burst(P.x,P.y-60,'🎁',5);openDock()};
+
+// ----- emotes (no free-text chat) -----
+$('#emobar').innerHTML=EMOTES.map((e,i)=>`<button onclick="doEmote(${i})">${e}</button>`).join('');
+window.doEmote=i=>{$('#emobar').classList.add('hidden');if(!EMOTES[i]||time-MP.emoT<.5)return;MP.emoT=time;showEmo('me',i);
+ if(MP.role==='visitor'){try{MP.conn.send({t:'emo',e:i})}catch(e){}}else if(MP.role==='host')broadcast({t:'emo',id:'host',e:i})};
+$('#bEmo').onclick=()=>{if(busy)return;closeTalk();$('#emobar').classList.toggle('hidden')};
+$('#bLeave').onclick=()=>{if(MP.role==='visitor')openDock()};
+$('#mppill').onclick=()=>{if(!busy)openDock()};
+
+// ----- the Capy Air menu -----
+function dockMsg(m){modal(`<h2>✈️ Capy Air</h2><p class="c" style="font-size:18px">${m}</p><div class="row"><button class="btn" onclick="closeModal()">OK</button></div>`)}
+window.setVColor=c=>{if(!CAPY[c]||VIS())return;S.vcolor=c;save();SND.pop();openDock()};
+window.openDock=(view,prefill)=>{view=view||'main';let h='<h2>✈️ Capy Air</h2>';const hn=hostName();
+ if(view==='guestbook'){const gb=S.guestbook;h+=`<h3>📝 My Guestbook</h3>`+(gb.length?'<div class="list">'+gb.slice().reverse().map(g=>`<div class="li"><span class="e">${esc(g.s)}</span><span class="t"><span class="dot" style="background:${(CAPY[g.c]||CAPY.caramel).b}"></span>${esc(g.n)}<small>visited on ${esc(g.d)}</small></span></div>`).join('')+'</div>':'<p class="note">No visitors yet!<br>Open your island and share your code with a friend. ✈️</p>')+`<div class="row"><button class="btn white" onclick="openDock()">Back</button><button class="btn" onclick="closeModal()">Close</button></div>`}
+ else if(MP.role==='visitor'){
+  if(view==='stamp')h+=`<p class="c">Pick a stamp for ${hn}'s guestbook!</p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${STAMPS.map((s,i)=>`<div class="cell" style="font-size:44px" onclick="mpSign(${i})">${s}</div>`).join('')}</div><div class="row"><button class="btn white" onclick="openDock()">Back</button></div>`;
+  else if(view==='wrap')h+=`<p class="c">Pick a wrapping color! 🎀<br><small>A surprise will be inside. It will be on ${hn}'s beach tomorrow.</small></p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${Object.keys(WRAPS).map(k=>`<div class="cell" style="background:${WRAPS[k]};border-color:#fff;font-size:34px" onclick="mpGift('${k}')">🎀</div>`).join('')}</div><div class="row"><button class="btn white" onclick="openDock()">Back</button></div>`;
+  else h+=`<p class="c">You're visiting <b>${hn}</b>'s island! 🏝️</p><button class="btn big" ${MP.signed?'disabled':''} onclick="openDock('stamp')">${MP.signed?'Guestbook signed ✓':'Sign the guestbook 📝'}</button><button class="btn big" ${MP.gave?'disabled':''} onclick="openDock('wrap')">${MP.gave?'Present left ✓':'Leave a present 🎁'}</button><button class="btn big white" onclick="leaveIsland()">Fly home ✈️</button><div class="row"><button class="btn white" onclick="closeModal()">Keep playing</button></div>`}
+ else if(view==='visit'){if(MP.role==='host'){view='main';return openDock()}
+  h+=`<p class="c">Type your friend's island code:</p><input class="code" id="vcode" maxlength="5" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="?????" value="${esc(prefill||'')}"><p class="c" style="font-size:14px">You'll fly there as <span class="dot" style="background:${CAPY[S.vcolor].b}"></span>${esc(S.name)}</p>`+(peerOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+`<div class="row"><button class="btn" id="vgo" style="font-size:22px" onclick="visitFriend(document.getElementById('vcode').value)" ${peerOK()?'':'disabled'}>Fly! ✈️</button><button class="btn white" onclick="openDock()">Back</button></div>`}
+ else if(MP.role==='host'){
+  if(MP.hostState!=='open')h+=`<p class="c" style="font-size:18px">Opening your island...</p><div style="text-align:center;font-size:56px"><div class="fly">🛬</div></div><div class="row"><button class="btn white" onclick="closeIsland()">Cancel</button></div>`;
+  else{h+=`<p class="c">Your island is open! 🏝️ Tell your friend this code:</p><div class="code">${MP.code}</div><div class="row"><button class="btn" onclick="copyCode()">Copy 📋</button>${navigator.share?'<button class="btn" onclick="shareCode()">Share 💌</button>':''}</div>
+   <h3>Visitors (${MP.vis.size}/${MAX_VIS})</h3>`+(MP.vis.size?'<div class="list">'+[...MP.vis.values()].map(v=>`<div class="li"><span class="t"><span class="dot" style="background:${CAPY[v.color].b}"></span>${esc(v.name)}</span><button class="btn white" onclick="sendHome('${esc(v.id)}')">Send home 🏠</button></div>`).join('')+'</div>':'<p class="note" style="margin-top:0">Waiting for friends to fly in... ✈️</p>')+
+   `<div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeIsland()">Close my island 🔒</button></div><div class="row"><button class="btn" onclick="closeModal()">Keep playing</button></div>`}}
+ else{h+=`<p class="c">Visit a friend's island, or invite friends to yours!</p>`+(peerOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+
+  `<button class="btn big" ${peerOK()?'':'disabled'} onclick="openIsland()">Open my island 🏝️</button><button class="btn big" ${peerOK()?'':'disabled'} onclick="openDock('visit')">Visit a friend ✈️</button>
+  <h3>My visiting color</h3><div class="sws">${Object.keys(CAPY).filter(k=>k!=='pink').concat('pink').map(k=>`<button class="sw ${S.vcolor===k?'on':''}" title="${CAPY[k].n}" style="background:${CAPY[k].b}" onclick="setVColor('${k}')"></button>`).join('')}</div><p class="c" style="font-size:13px;margin:6px 0 0">When you visit, you'll be a ${CAPY[S.vcolor].n.toLowerCase()} capybara!</p>
+  <div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeModal()">Bye! 👋</button></div>`}
+ modal(h);MP.dockOpen=true;MP.dockView=view;
+ const inp=$('#vcode');if(inp){inp.oninput=()=>{const v=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').split('').filter(ch=>CODE_ABC.includes(ch)).join('').slice(0,5);if(v!==inp.value)inp.value=v};inp.onkeydown=e=>{if(e.key==='Enter')visitFriend(inp.value)};setTimeout(()=>{try{inp.focus()}catch(e){}},50)}};
+
+// ---------- GROWN-UPS: backup & restore (press and hold the gear) ----------
+let restoring=false;
+(function(){const g=$('#gear');let t=null;const cancel=()=>{clearTimeout(t);t=null;g.classList.remove('hold')};
+ g.addEventListener('pointerdown',e=>{e.preventDefault();if(busy&&!MP.dockOpen&&$('#modal').classList.contains('hidden'))return;g.classList.add('hold');clearTimeout(t);t=setTimeout(()=>{cancel();grownups()},1500)});
+ ['pointerup','pointerleave','pointercancel'].forEach(ev=>g.addEventListener(ev,()=>{if(t){cancel();toast('For grown-ups: press and hold ⚙️')}}));
+ g.addEventListener('contextmenu',e=>e.preventDefault())})();
+function backupObj(){save();return{app:'capy-island',v:1,key:KEY,date:new Date().toISOString(),save:JSON.parse(JSON.stringify(S))}}
+const b64enc=s=>btoa(unescape(encodeURIComponent(s))),b64dec=s=>decodeURIComponent(escape(atob(s)));
+function backupName(){const d=new Date(),z=n=>String(n).padStart(2,'0');return`capy-island-backup-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}.json`}
+function grownups(msg){modal(`<h2>⚙️ Grown-ups</h2>${msg?`<p class="note">${msg}</p>`:''}<p class="c" style="font-size:14px">Save a backup of ${esc(S.name||'the')}'s island so it can't get lost (Chrome can clear website data).</p>
+ <button class="btn big" onclick="saveBackup()">💾 Save backup file</button><button class="btn big white" onclick="copyBackup()">📋 Copy backup code</button><div id="bkcode"></div>
+ <h3>Restore a backup</h3><div class="row" style="margin-top:0"><label class="btn white">📂 Choose file<input type="file" id="bkfile" accept=".json,application/json,text/plain" style="display:none"></label></div>
+ <p class="c" style="font-size:14px;margin:10px 0 4px">…or paste a backup code:</p><textarea class="bk" id="bkpaste" placeholder="Paste backup code here"></textarea><div class="row"><button class="btn white" onclick="restoreText(document.getElementById('bkpaste').value)">Restore from code</button></div>
+ <p class="c" style="font-size:12px;color:#b0487c">Capy Island v3 · save key ${KEY}</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`);
+ $('#bkfile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(f.size>2e6){grownups('😕 That file is too big to be a Capy Island backup.');return}const r=new FileReader();r.onload=()=>restoreText(String(r.result));r.onerror=()=>grownups("😕 Couldn't read that file.");r.readAsText(f)}}
+window.saveBackup=async()=>{const json=JSON.stringify(backupObj(),null,1),name=backupName();
+ try{const file=new File([json],name,{type:'application/json'});if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Capy Island backup',text:`Capy Island backup (${new Date().toLocaleDateString()})`});toast('Backup shared! 💾');return}}catch(e){if(e&&e.name==='AbortError')return}
+ const url=URL.createObjectURL(new Blob([json],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast('Backup downloaded! 💾<br>'+name,3500)};
+window.copyBackup=()=>{const code='CAPY1:'+b64enc(JSON.stringify(backupObj()));const box=$('#bkcode');if(box){box.innerHTML='<p class="c" style="font-size:13px;margin:8px 0 4px">Backup code (keep it somewhere safe):</p><textarea class="bk" readonly id="bkout"></textarea>';$('#bkout').value=code}
+ const ok=()=>toast('Backup code copied! 📋'),no=()=>{toast('Select the code and copy it 📋');try{$('#bkout').select()}catch(e){}};try{navigator.clipboard.writeText(code).then(ok,no)}catch(e){no()}};
+function parseBackup(txt){txt=String(txt||'').trim();if(!txt)throw 0;let o;
+ if(txt[0]!=='{'){const c=txt.replace(/^CAPY1:/,'').replace(/\s+/g,'');o=JSON.parse(b64dec(c))}else o=JSON.parse(txt);
+ let sv=o&&o.app==='capy-island'?o.save:o;const date=o&&o.date?new Date(o.date):null;
+ const obj=v=>v&&typeof v==='object'&&!Array.isArray(v);
+ if(!obj(sv)||!obj(sv.neigh)||!obj(sv.bag)||typeof sv.coins!=='number'||typeof sv.name!=='string'||(sv.room&&!Array.isArray(sv.room))||(sv.trees&&!Array.isArray(sv.trees)))throw 0;
+ for(const k in sv.bag)if(!ITEMS[k]||typeof sv.bag[k]!=='number')throw 0;
+ return{save:sv,date:date&&!isNaN(date)?date:null}}
+window.restoreText=txt=>{let b;try{b=parseBackup(txt)}catch(e){grownups("😕 That doesn't look like a Capy Island backup.<br>Nothing was changed.");return}
+ if(MP.role){grownups('Please finish visiting / close your island first. ✈️');return}
+ window._pendingRestore=b;const when=b.date?b.date.toLocaleString():'an unknown date';
+ modal(`<h2>⚙️ Restore backup?</h2><p class="c" style="font-size:17px">This will replace the current island with the backup from <b>${esc(when)}</b>${b.save.name?` (${esc(b.save.name)}'s island, 🪙 ${b.save.coins|0})`:''}.<br><br>Continue?</p><div class="row"><button class="btn" onclick="doRestore()">Yes, restore</button><button class="btn white" onclick="grownups()">Cancel</button></div>`)};
+window.doRestore=()=>{const b=window._pendingRestore;if(!b)return;restoring=true;try{localStorage.setItem(KEY,JSON.stringify(b.save))}catch(e){restoring=false;grownups("😕 Couldn't save the backup on this phone.");return}location.replace(location.pathname)};
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}
 
 // ---------- START ----------
-function welcome(){modal(`<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>`);
- $('#go').onclick=()=>{S.name=($('#nm').value.trim()||'Emi').slice(0,12);closeModal();newDay(true);hud();save();toast('Look! There are presents on the beach! 🎁',3500)}}
-if(new URLSearchParams(location.search).has('newday')){S.dayKey='';}
+islReady=true;buildIsland();
+const QS=new URLSearchParams(location.search);let pendingVisit=(QS.get('visit')||'').toUpperCase();if(!/^[A-Z0-9]{5}$/.test(pendingVisit)||[...pendingVisit].some(c=>!CODE_ABC.includes(c)))pendingVisit='';
+if(QS.has('visit'))try{QS.delete('visit');history.replaceState(null,'',location.pathname+(QS.toString()?'?'+QS:'')+location.hash)}catch(e){}
+function maybeVisit(){if(pendingVisit){const c=pendingVisit;pendingVisit='';setTimeout(()=>openDock('visit',c),700)}}
+function welcome(){modal(`<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.<br>✈️ Tap the seaplane to visit friends!</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>`);
+ $('#go').onclick=()=>{S.name=($('#nm').value.trim()||'Emi').slice(0,12);closeModal();newDay(true);hud();save();toast('Look! There are presents on the beach! 🎁',3500);maybeVisit()}}
+if(QS.has('newday')){S.dayKey='';}
 hud();
 if(!S.name)welcome();
-else{if(newDay()){hud();setTimeout(()=>toast(`Good morning, ${S.name}! 🌞<br>The fruit grew back and your friends need help!`,4000),300)}else{for(let i=0;i<4;i++)spawnBug()}}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else if(S.name&&newDay()){hud();toast(`Good morning, ${S.name}! 🌞 A new day on Capy Island!`,3500)}});
+else{if(newDay()){hud();setTimeout(()=>toast(`Good morning, ${esc(S.name)}! 🌞<br>The fruit grew back and your friends need help!`+(S.fpresents.length?'<br>💝 A friend left you a present on the beach!':''),4000),300)}else{for(let i=0;i<4;i++)spawnBug()}maybeVisit()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else if(S.name&&!VIS()&&newDay()){hud();toast(`Good morning, ${esc(S.name)}! 🌞 A new day on Capy Island!`,3500)}});
+addEventListener('pagehide',()=>{if(MP.role==='visitor')try{MP.conn&&MP.conn.send({t:'bye'})}catch(e){}if(MP.role==='host')try{broadcast({t:'closed'})}catch(e){}});
 setInterval(save,5000);
 requestAnimationFrame(loop);
 </script>
