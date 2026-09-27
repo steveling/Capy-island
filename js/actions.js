@@ -352,7 +352,7 @@ let F = null;
 function fishPlan(r = Math.random) {
   const bite = 1.5 + (5 * (r() + r())) / 2,
     nibbles = [];
-  for (let i = Math.floor(r() * 4); i > 0; i--) if (bite > 1.2) nibbles.push(0.6 + r() * (bite - 1));
+  for (let i = Math.floor(r() * 4); i > 0; i--) nibbles.push(0.6 + r() * (bite - 1)); // between 0.6s and 0.4s before the bite
   nibbles.sort((a, b) => a - b);
   return { nibbles: nibbles.filter((t, i) => !i || t - nibbles[i - 1] > 0.3), bite, window: 1.4 + r() * 0.5 };
 }

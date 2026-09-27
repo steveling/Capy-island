@@ -26,7 +26,8 @@ function dockHit(x, y) {
 }
 function tapWorld(x, y) {
   if (tapSky(x, y)) return;
-  if (ONV() && MP.offline && MP.island && dist(x, y, NAP.x, NAP.y - 24) < 58) {
+  const onHouse = Math.abs(x - HOUSE.x) < 66 && y < HOUSE.y + 6 && y > HOUSE.y - 135;
+  if (ONV() && MP.offline && MP.island && !onHouse && dist(x, y, NAP.x, NAP.y - 24) < 58) {
     toast(`Shh... ${hostName()} is taking a nap 💤`);
     return;
   }

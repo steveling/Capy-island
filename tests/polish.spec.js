@@ -242,6 +242,13 @@ test.describe('visiting a napping friend', () => {
     await napVisit(page, game);
     await page.evaluate(() => tapWorld(NAP.x, NAP.y - 20));
     await expect(page.locator('#toast')).toContainText('Hapi Mommy is taking a nap');
+    // where the bed and the house touch, a tap still goes to the house
+    const act = await page.evaluate(() => {
+      P.act = null;
+      tapWorld(HOUSE.x + 60, HOUSE.y - 5);
+      return P.act && P.act.k;
+    });
+    expect(act).toBe('house');
   });
 
   test('no snoring on a live visit or at home', async ({ page, game }) => {
