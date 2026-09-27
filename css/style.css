@@ -1429,3 +1429,63 @@ body.kb #chatlog {
   color: #d94b90;
   font-size: 16px;
 }
+/* drawing board: painter and viewer */
+.bcv {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  margin: 6px auto 8px;
+  border: 5px solid #a8703f;
+  border-radius: 10px;
+  background: #fffaf2;
+  image-rendering: pixelated;
+  box-shadow: 0 3px 0 #7d4d2a;
+}
+.bcv.paint {
+  touch-action: none;
+  cursor: crosshair;
+}
+.bpal {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+  max-width: 320px;
+  margin: 0 auto 6px;
+}
+.bsw {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #ffd0e6;
+  padding: 0;
+  font-size: 16px;
+}
+.bsw.on {
+  box-shadow: 0 0 0 3px #d94b90;
+  transform: scale(1.12);
+}
+.btools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  max-width: 330px;
+  margin: 0 auto;
+}
+.btools button {
+  min-width: 40px;
+  height: 40px;
+  border: 3px solid #ffd0e6;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 19px;
+  padding: 0 4px;
+  font-family: inherit;
+  font-weight: 900;
+  color: #d94b90;
+}
+.btools button.on {
+  border-color: #d94b90;
+  background: #ffe6f1;
+}

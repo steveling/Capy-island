@@ -76,7 +76,9 @@ function cleanIsland(i) {
     color: cleanColor(i.color),
     acc: cleanAcc(i.acc),
     // the inside of their house: only sent to best friends; anything that isn't furniture is dropped
-    room: Array.isArray(i.room) ? Array.from({ length: 20 }, (_, k) => furn(i.room[k])) : null
+    room: Array.isArray(i.room) ? Array.from({ length: 20 }, (_, k) => furn(i.room[k])) : null,
+    // their drawing board, also best friends only: exactly 768 hex digits, or '' for blank
+    bd: cleanBoard(i.bd)
   };
 }
 // what visitors see of my island. Only best friends (cloud connections, and the friends-only cloud copy)
@@ -95,7 +97,10 @@ function snapshot(friend) {
     color: myColor(),
     acc: myAcc()
   };
-  if (friend) s.room = S.room.slice();
+  if (friend) {
+    s.room = S.room.slice();
+    s.bd = S.board || ''; // the drawing board (js/board.js)
+  }
   return s;
 }
 function addPlayer(id, name, color, stack, x, y) {

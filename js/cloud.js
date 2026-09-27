@@ -839,6 +839,7 @@ function clPanelHtml() {
       ? `<button class="btn big white" onclick="clFreshCloud()">Start a new cloud island on this phone</button>`
       : `<label style="display:flex;gap:8px;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-top:8px"><input type="checkbox" id="cldrop" ${CL.dropins ? 'checked' : ''}> Best friends can drop in while ${esc(S.name || 'your child')} plays</label>
  <label style="display:flex;gap:8px;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-top:8px"><input type="checkbox" id="clchat" ${CL.chat ? 'checked' : ''}> Best friends can send typed chat messages</label>
+ <label style="display:flex;gap:8px;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-top:8px"><input type="checkbox" id="clboards" ${CL.boards ? 'checked' : ''}> Show best friends' drawings</label>
  <button class="btn big white" onclick="clMakeTransfer()" ${CL.ready ? '' : 'disabled'}>📱 Move to a new phone</button><div id="clxfer"></div>`) +
     clClaimHtml()
   );
@@ -861,6 +862,12 @@ function clPanelWire() {
       CL.chat = k.checked;
       clMetaSet({ chat: CL.chat });
       chatUI();
+    };
+  const bd = $('#clboards');
+  if (bd)
+    bd.onchange = () => {
+      CL.boards = bd.checked;
+      clMetaSet({ boards: CL.boards });
     };
 }
 window.clMakeTransfer = async () => {
@@ -947,7 +954,7 @@ window.clFreshCloud = async () => {
   CL.uid = null;
   CL.ready = false;
   CL.status = 'off';
-  CL.meta = { dropins: CL.dropins, chat: CL.chat, localTs: Date.now(), dirty: true };
+  CL.meta = { dropins: CL.dropins, chat: CL.chat, boards: CL.boards, localTs: Date.now(), dirty: true };
   clMetaSave();
   await clInit();
   grownups();

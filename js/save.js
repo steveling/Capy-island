@@ -88,6 +88,7 @@ function newSave() {
     gotTools: 0,
     v4news: 1,
     news: NEWS_V,
+    board: '', // the drawing board outside (js/board.js): '' blank, or 768 hex digits
     emotes: [0, 1, 2, 3, 4, 5]
   };
 }
@@ -163,6 +164,7 @@ let v4news = false;
     v4news = true;
   }
   S.news = newsBefore;
+  if (typeof S.board !== 'string' || !(S.board === '' || /^[0-9a-f]{768}$/.test(S.board))) S.board = '';
 })();
 function save() {
   if (VIS() || restoring) return;
@@ -211,6 +213,7 @@ const CL = {
   pipes: new Map(),
   dropins: true,
   chat: true, // grown-ups switch: typed chat with best friends
+  boards: true, // grown-ups switch: seeing best friends' drawing boards
   upT: null,
   firstDirty: 0,
   uploading: null,
@@ -230,6 +233,7 @@ if (CL.on) {
   }
   CL.dropins = CL.meta.dropins !== false;
   CL.chat = CL.meta.chat !== false;
+  CL.boards = CL.meta.boards !== false;
   CL.status = CL.meta.moved ? 'moved' : 'off';
   CL.friends = (Array.isArray(CL.meta.friends) ? CL.meta.friends : [])
     .filter(f => f && /^[0-9a-f-]{36}$/.test(f.id))

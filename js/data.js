@@ -831,5 +831,9 @@ function beachPos(a) {
   return edge(a, SRX, SRY, 0.925);
 }
 function grassFree(x, y) {
-  return !(x > 560 && x < 860 && y > 120 && y < 330) && !(x > 570 && x < 760 && y > 384 && y < 478);
+  return (
+    !(x > 560 && x < 860 && y > 120 && y < 330) &&
+    !(x > 570 && x < 760 && y > 384 && y < 478) &&
+    !(x > 745 && x < 880 && y > 355 && y < 485) // the drawing board (js/board.js)
+  );
 }
