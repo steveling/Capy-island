@@ -8,9 +8,10 @@ const QS = new URLSearchParams(location.search);
 let pendingVisit = (QS.get('visit') || '').toUpperCase();
 if (!/^[A-Z0-9]{5}$/.test(pendingVisit) || [...pendingVisit].some(c => !CODE_ABC.includes(c)))
   pendingVisit = '';
-if (QS.has('visit'))
+if (QS.has('visit') || QS.has('fresh'))
   try {
     QS.delete('visit');
+    QS.delete('fresh'); // left by the start-up self-heal in index.html
     history.replaceState(null, '', location.pathname + (QS.toString() ? '?' + QS : '') + location.hash);
   } catch (e) {}
 function maybeVisit() {
@@ -145,3 +146,4 @@ window.quitLeave = () => {
 setInterval(save, 5000);
 requestAnimationFrame(loop);
 if (CL.on && gateOpen()) clStart();
+window.capyBooting = false; // every script loaded and ran: the start-up self-heal in index.html stands down

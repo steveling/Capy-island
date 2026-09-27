@@ -18,7 +18,12 @@ from any web server.
 npm install
 npm start          # http://localhost:4173/
 npm test           # Playwright tests (Chromium)
-npm run lint       # Prettier check; `npm run format` fixes it
+npm run lint       # Prettier check + index.html stamps; `npm run format` fixes formatting
+npm run stamp      # after changing anything in js/ or css/: re-stamps the file addresses in index.html
 ```
 
 The first time, `npx playwright install chromium` downloads the browser the tests use.
+
+Every script and stylesheet address in `index.html` ends in `?v=<fingerprint of the file>`. GitHub Pages lets
+browsers reuse files for 10 minutes, and a page mixing new and old cached files breaks, so a changed file needs
+a new address. `npm run lint` (and CI) fails if a stamp is out of date.
