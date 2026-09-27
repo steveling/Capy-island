@@ -1,0 +1,254 @@
+#gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: auto;
+  background: linear-gradient(#aee3ff 0%, #dff4ff 45%, #ffe6f1 70%, #ffd5e8 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(12px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
+  color: #7a2a55;
+  transition: opacity 0.6s;
+}
+#gate.bye {
+  opacity: 0;
+  pointer-events: none;
+}
+#gate > * {
+  flex-shrink: 0;
+  width: min(420px, 100%);
+}
+#gate .gsky {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: -1;
+}
+#gate .gcl {
+  position: absolute;
+  background: #fff;
+  border-radius: 40px;
+  opacity: 0.9;
+  height: 26px;
+  box-shadow:
+    22px -10px 0 4px #fff,
+    -18px -6px 0 0 #fff;
+  animation: gdrift 38s linear infinite;
+}
+#gate .gpl {
+  position: absolute;
+  top: 13%;
+  font-size: 34px;
+  animation: gfly 16s linear infinite;
+}
+#gate .grun {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 17%;
+  background: repeating-linear-gradient(90deg, #b8a9c9 0 40px, #c7b9d6 40px 80px);
+  border-top: 6px solid #ffffff99;
+}
+#gate .grun:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 44%;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, #fff 0 34px, transparent 34px 68px);
+}
+@keyframes gdrift {
+  from {
+    transform: translateX(-160px);
+  }
+  to {
+    transform: translateX(560px);
+  }
+}
+@keyframes gfly {
+  from {
+    transform: translateX(-80px) translateY(0);
+  }
+  50% {
+    transform: translateX(230px) translateY(-14px);
+  }
+  to {
+    transform: translateX(560px) translateY(0);
+  }
+}
+#gate .gsign {
+  margin: 4px auto 10px;
+  background: #35437d;
+  color: #ffe066;
+  border-radius: 14px;
+  padding: 7px 12px;
+  text-align: center;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  font-size: 17px;
+  box-shadow: 0 4px 0 #26315e;
+  border: 3px solid #fff;
+  width: auto;
+}
+#gate .gsign small {
+  display: block;
+  color: #fff;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+#gate .gbub {
+  position: relative;
+  background: #fff;
+  border: 3px solid #ff8cc6;
+  border-radius: 22px;
+  padding: 12px 16px;
+  font-size: 19px;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 4px 0 #e56aa8;
+  min-height: 64px;
+  line-height: 1.35;
+}
+#gate .gbub:after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -19px;
+  margin-left: -11px;
+  border: 11px solid transparent;
+  border-top-color: #ff8cc6;
+}
+#gate .gbub b {
+  color: #d94b90;
+}
+#gate .gstage {
+  position: relative;
+  height: 190px;
+  margin-top: 16px;
+}
+#gate .gguard {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 150px;
+  margin-left: -118px;
+}
+#gate .gguard svg {
+  width: 150px;
+  height: 161px;
+  display: block;
+  animation: gbob 2.6s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+@keyframes gbob {
+  50% {
+    transform: translateY(-4px) scaleY(1.015);
+  }
+}
+#gate #ghead {
+  transform-origin: 80px 96px;
+}
+#gate #garm {
+  transform-origin: 122px 100px;
+}
+#gate .no #ghead {
+  animation: gshake 0.55s ease-in-out 2;
+}
+@keyframes gshake {
+  20% {
+    transform: rotate(-11deg);
+  }
+  60% {
+    transform: rotate(11deg);
+  }
+}
+#gate .yes #garm {
+  animation: gwave 0.38s ease-in-out 6 alternate;
+}
+@keyframes gwave {
+  to {
+    transform: rotate(-72deg);
+  }
+}
+#gate .gpost {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  margin-left: 34px;
+  width: 16px;
+  height: 92px;
+  border-radius: 6px;
+  background: #35437d;
+}
+#gate .gbar {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  margin-left: 44px;
+  width: 118px;
+  height: 14px;
+  border-radius: 7px;
+  background: repeating-linear-gradient(90deg, #ff5fa2 0 16px, #fff 16px 32px);
+  border: 2px solid #d94b90;
+  transform-origin: 4px 50%;
+  transition: transform 0.7s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+#gate .gstage.open .gbar {
+  transform: rotate(-78deg);
+}
+#gate .gform {
+  background: #fffffff0;
+  border: 3px solid #ffd0e6;
+  border-radius: 22px;
+  padding: 12px;
+  margin-top: 10px;
+  box-shadow: 0 5px 0 #f3b5d3;
+}
+#gate input.name {
+  font-size: 26px;
+  text-align: center;
+  letter-spacing: 2px;
+  margin: 0 0 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#gate .btn.big {
+  width: 100%;
+  font-size: 23px;
+}
+#gate .gnote {
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  margin: 10px 0 0;
+  min-height: 1em;
+}
+#gate .glink {
+  display: block;
+  margin: 12px auto 0;
+  background: none;
+  border: none;
+  color: #b0487c;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+  width: auto;
+}
+#gate .gform.shake {
+  animation: gnudge 0.4s ease 1;
+}
+@keyframes gnudge {
+  25% {
+    transform: translateX(-7px);
+  }
+  75% {
+    transform: translateX(7px);
+  }
+}
