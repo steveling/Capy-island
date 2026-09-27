@@ -647,6 +647,11 @@ function tapV4(x, y) {
       }
     }
   }
+  if (boardHit(x, y)) {
+    P.act = { k: 'board' };
+    setT(BOARD.x - 24, BOARD.y + 20);
+    return true;
+  }
   for (let i = 0; i < GARDEN.length; i++) {
     const g = GARDEN[i];
     if (Math.abs(x - g.x) < 21 && y > g.y - 36 && y < g.y + 13) {
@@ -689,6 +694,9 @@ function actV4(a) {
       return true;
     case 'stall':
       openArt();
+      return true;
+    case 'board':
+      boardAct();
       return true;
   }
   return false;
@@ -989,6 +997,7 @@ function drawV4Ground() {
 }
 function pushV4(ents) {
   ents.push([MUSEUM.y, drawMuseum]);
+  ents.push([BOARD.y, drawBoard]);
   ents.push([ANNEX.y - 1, drawAnnex]);
   GARDEN.forEach((g, i) => ents.push([g.y, () => drawPlot(i)]));
   if (!ONV()) {
