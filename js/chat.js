@@ -186,10 +186,16 @@ function chatUI() {
 // On-screen keyboards shrink only the *visual* viewport (iOS Safari, Android Chrome), so a panel fixed to the
 // bottom of the page ends up behind them. Measure how much of the page the keyboard covers and lift the
 // panel just above it; the log gets shorter so the whole panel still fits in what's left.
+// The page height comes from a box fixed to the top and bottom of the page, the same box #chat is placed
+// in: window.innerHeight can't be used, because Android Chrome shrinks it along with the visible area.
+const pageBox = document.createElement('div');
+pageBox.style.cssText = 'position:fixed;top:0;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none';
+document.body.appendChild(pageBox);
 function chatKeyboard() {
   const vv = window.visualViewport;
   if (!vv) return;
-  const covered = Math.max(0, Math.round(innerHeight - (vv.height + vv.offsetTop))),
+  const pageH = pageBox.getBoundingClientRect().height,
+    covered = Math.max(0, Math.round(pageH - (vv.height + vv.offsetTop))),
     st = document.documentElement.style;
   st.setProperty('--kb', covered + 'px');
   st.setProperty('--vvh', Math.round(vv.height) + 'px');
@@ -203,6 +209,10 @@ if (window.visualViewport) {
   visualViewport.addEventListener('resize', chatKeyboard);
   visualViewport.addEventListener('scroll', chatKeyboard);
 }
+// some keyboards slide in without a timely resize event: check again as the text box gains/loses focus
+['focus', 'blur'].forEach(ev =>
+  $('#chatin').addEventListener(ev, () => [0, 150, 400].forEach(ms => setTimeout(chatKeyboard, ms)))
+);
 $('#bChat').onclick = () => ($('#chat').classList.contains('hidden') ? chatOpen() : chatClose());
 $('#chatsend').onclick = chatSend;
 $('#chatx').onclick = chatClose;

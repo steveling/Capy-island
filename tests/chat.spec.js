@@ -227,68 +227,88 @@ test('the emote bar and the chat panel never cover each other', async ({ game, n
   await expect(ben.locator('#emobar')).toBeHidden();
 });
 
-test.describe('phone keyboard', () => {
-  // headless Chromium has no on-screen keyboard: stand in for window.visualViewport, and "open" a keyboard
-  // by shrinking it from the bottom the way iOS Safari and Android Chrome do
-  const fakeKeyboard = page =>
-    page.addInitScript(() => {
-      const vv = new EventTarget();
-      Object.assign(vv, { height: innerHeight, width: innerWidth, offsetTop: 0, offsetLeft: 0, scale: 1 });
-      Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
-      // px: keyboard height; pan: how far iOS scrolled the visible area down to show the focused box
-      window.__keyboard = (px, pan = 0) => {
-        vv.offsetTop = pan;
-        vv.height = innerHeight - px - pan;
-        vv.dispatchEvent(new Event('resize'));
-      };
+// Headless Chromium has no on-screen keyboard: stand in for window.visualViewport, and "open" a keyboard by
+// shrinking it from the bottom. Two browser models, because they report window.innerHeight differently:
+//  - iOS Safari: innerHeight stays the full screen height while the keyboard is open;
+//  - Android Chrome: innerHeight follows the visible area, so it shrinks with the keyboard too.
+// Either way the page layout (what position:fixed elements are placed in) stays full height.
+const BROWSERS = { 'iOS Safari': false, 'Android Chrome': true };
+for (const [browser, innerFollows] of Object.entries(BROWSERS))
+  test.describe(`phone keyboard (${browser})`, () => {
+    const fakeKeyboard = page =>
+      page.addInitScript(innerFollows => {
+        // heights are worked out when read: this runs before the page's viewport settings apply
+        const real =
+            Object.getOwnPropertyDescriptor(window, 'innerHeight') ||
+            Object.getOwnPropertyDescriptor(Window.prototype, 'innerHeight'),
+          full = () => real.get.call(window),
+          kb = { px: 0, pan: 0 },
+          vv = new EventTarget();
+        Object.defineProperties(vv, {
+          height: { get: () => full() - kb.px - kb.pan },
+          width: { get: () => innerWidth },
+          offsetTop: { get: () => kb.pan },
+          offsetLeft: { value: 0 },
+          scale: { value: 1 }
+        });
+        Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+        if (innerFollows)
+          Object.defineProperty(window, 'innerHeight', { get: () => vv.height, configurable: true });
+        window.__H0 = full;
+        // px: keyboard height; pan: how far the browser scrolled the visible area down to show the text box
+        window.__keyboard = (px, pan = 0) => {
+          Object.assign(kb, { px, pan });
+          vv.dispatchEvent(new Event('resize'));
+        };
+      }, innerFollows);
+    const box = (page, sel) => page.locator(sel).boundingBox();
+
+    test('the chat box moves above the keyboard, and back down when it closes', async ({
+      game,
+      newPhone
+    }) => {
+      await fakeKeyboard(game.page);
+      const { ben } = await adaAndBen(game, newPhone);
+      const ada = game.page;
+      await say(ben, 'hi!');
+      await ada.locator('#bChat').click();
+      const H = await ada.evaluate(() => window.__H0());
+      const closed = await box(ada, '#chat');
+
+      // a tall keyboard, like a phone in landscape or with suggestions: 60% of the screen
+      const kb = Math.round(H * 0.6);
+      await ada.evaluate(px => window.__keyboard(px), kb);
+      await expect
+        .poll(async () => {
+          const b = await box(ada, '#chat');
+          return b.y + b.height <= H - kb && b.y >= 0;
+        })
+        .toBe(true);
+      const inp = await box(ada, '#chatin');
+      expect(inp.y + inp.height).toBeLessThanOrEqual(H - kb);
+      // the log still shows the last message
+      const last = await box(ada, '#chatlog .cl:last-child');
+      expect(last.y + last.height).toBeLessThanOrEqual(H - kb);
+
+      await ada.evaluate(() => window.__keyboard(0));
+      await expect.poll(async () => (await box(ada, '#chat')).y).toBeCloseTo(closed.y, 0);
     });
-  const box = (page, sel) => page.locator(sel).boundingBox();
 
-  test('the chat box moves above the keyboard, and back down when it closes', async ({ game, newPhone }) => {
-    await fakeKeyboard(game.page);
-    const { ben } = await adaAndBen(game, newPhone);
-    const ada = game.page;
-    await say(ben, 'hi!');
-    await ada.locator('#bChat').click();
-    const H = await ada.evaluate(() => innerHeight);
-    const closed = await box(ada, '#chat');
-
-    // a tall keyboard, like a phone in landscape or with suggestions: 60% of the screen
-    const kb = Math.round(H * 0.6);
-    await ada.evaluate(px => window.__keyboard(px), kb);
-    await expect
-      .poll(async () => {
-        const b = await box(ada, '#chat');
-        return b.y + b.height <= H - kb && b.y >= 0;
-      })
-      .toBe(true);
-    const inp = await box(ada, '#chatin');
-    expect(inp.y + inp.height).toBeLessThanOrEqual(H - kb);
-    // the log still shows the last message
-    await expect(ada.locator('#chatlog .cl').last()).toBeInViewport();
-
-    await ada.evaluate(() => window.__keyboard(0));
-    await expect.poll(async () => (await box(ada, '#chat')).y).toBeCloseTo(closed.y, 0);
+    test('the page panned to the text box: the whole chat box stays in view', async ({ game, newPhone }) => {
+      await fakeKeyboard(game.page);
+      const { ben } = await adaAndBen(game, newPhone);
+      const ada = game.page;
+      await say(ben, 'hi!');
+      await ada.locator('#bChat').click();
+      const H = await ada.evaluate(() => window.__H0());
+      const kb = Math.round(H * 0.45),
+        pan = 120;
+      await ada.evaluate(([px, p]) => window.__keyboard(px, p), [kb, pan]);
+      await expect
+        .poll(async () => {
+          const b = await box(ada, '#chat');
+          return b.y >= pan && b.y + b.height <= H - kb;
+        })
+        .toBe(true);
+    });
   });
-
-  test('iOS panning the page to the text box: the whole chat box stays in view', async ({
-    game,
-    newPhone
-  }) => {
-    await fakeKeyboard(game.page);
-    const { ben } = await adaAndBen(game, newPhone);
-    const ada = game.page;
-    await say(ben, 'hi!');
-    await ada.locator('#bChat').click();
-    const H = await ada.evaluate(() => innerHeight);
-    const kb = Math.round(H * 0.45),
-      pan = 120;
-    await ada.evaluate(([px, p]) => window.__keyboard(px, p), [kb, pan]);
-    await expect
-      .poll(async () => {
-        const b = await box(ada, '#chat');
-        return b.y >= pan && b.y + b.height <= H - kb;
-      })
-      .toBe(true);
-  });
-});
