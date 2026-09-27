@@ -84,6 +84,44 @@ addEventListener('pagehide', () => {
       broadcast({ t: 'closed' });
     } catch (e) {}
 });
+
+// ----- pressing back by accident asks first (#4)
+// After the first tap, one extra history entry sits on top of the game. Back (the phone's button or
+// gesture, or the browser's) pops it instead of leaving, and we ask. Chrome's back button skips entries a
+// page added without a tap, so the entry is only (re)added in response to one.
+const QUIT = { armed: false, leaving: false };
+const quitAsking = () => !$('#quit').classList.contains('hidden');
+function quitArm() {
+  if (QUIT.armed || QUIT.leaving || quitAsking()) return;
+  try {
+    history.pushState({ capyGuard: 1 }, '');
+    QUIT.armed = true;
+  } catch (e) {}
+}
+addEventListener('pointerdown', quitArm, true);
+addEventListener('keydown', quitArm, true);
+addEventListener('popstate', () => {
+  if (!QUIT.armed || QUIT.leaving) return;
+  QUIT.armed = false;
+  save();
+  $('#quit').classList.remove('hidden');
+});
+window.quitStay = () => {
+  $('#quit').classList.add('hidden');
+  quitArm();
+};
+window.quitLeave = () => {
+  QUIT.leaving = true;
+  $('#quit').classList.add('hidden');
+  save();
+  history.back();
+  // still here after a moment: there was no page before this one to go back to
+  setTimeout(() => {
+    QUIT.leaving = false;
+    toast('To leave, close this tab or app. 👋', 3500);
+  }, 800);
+};
+
 setInterval(save, 5000);
 requestAnimationFrame(loop);
 if (CL.on && gateOpen()) clStart();

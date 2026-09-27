@@ -1304,3 +1304,14 @@ body.chatting #bottom button {
   font-weight: 700;
   text-align: center;
 }
+/* "Leave Capy Island?" when back is pressed (#4): above everything, even the passcode gate */
+#quit {
+  position: fixed;
+  inset: 0;
+  background: rgba(120, 40, 80, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 14px;
+}
