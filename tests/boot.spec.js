@@ -35,6 +35,7 @@ test('every script and stylesheet loads', async ({ page, game }) => {
       typeof openMuseum, // museum
       typeof grownups, // grownups
       typeof clInit, // cloud
+      typeof chatUI, // chat
       typeof showGate, // gate
       typeof capyBoot // main
     ].every(t => t !== 'undefined')
@@ -71,4 +72,13 @@ test('a returning player skips the welcome screen', async ({ page, game }) => {
   await page.waitForFunction(() => typeof loop === 'function' && islReady);
   await expect(page.locator('#modal')).toBeHidden();
   await expect(page.locator('#who')).toContainText('Ada');
+});
+
+test('the scripts avoid regex features older iPads cannot parse', () => {
+  // Safari before iOS 16.4 throws a SyntaxError on regex lookbehind, which would stop a whole script loading
+  const fs = require('fs'),
+    path = require('path');
+  const dir = path.join(__dirname, '..', 'js');
+  for (const f of fs.readdirSync(dir))
+    expect(fs.readFileSync(path.join(dir, f), 'utf8'), f).not.toMatch(/\(\?<[=!]/);
 });

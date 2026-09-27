@@ -2,9 +2,58 @@
 const base = require('@playwright/test');
 
 const UNLOCK = 'capyIsland.unlocked';
+const ready = page => page.waitForFunction(() => typeof loop === 'function' && islReady);
+
+/** game helpers bound to one page (one player's phone) */
+function gameOn(page) {
+  return {
+    page,
+    /**
+     * load the game.
+     *  - cloud: false (default) serves an empty js/config.js, i.e. local-only play;
+     *           true keeps the real config (the network to Supabase/CDNs is blocked either way,
+     *           so cloud mode runs "offline").
+     *  - storage: localStorage to start from (set before any game script runs).
+     */
+    async open({ cloud = false, storage = {} } = {}) {
+      await page.context().route(/^https?:\/\/(?!localhost)/, r => r.abort());
+      if (!cloud)
+        await page.route('**/js/config.js', r =>
+          r.fulfill({
+            contentType: 'text/javascript',
+            body: "const SUPABASE_URL = '';\nconst SUPABASE_ANON_KEY = '';\n"
+          })
+        );
+      await page.addInitScript(s => {
+        if (sessionStorage.getItem('seeded')) return;
+        sessionStorage.setItem('seeded', '1');
+        localStorage.clear();
+        for (const k in s) localStorage.setItem(k, s[k]);
+      }, storage);
+      await page.goto('/');
+      await ready(page);
+    },
+    /** walk through the welcome screen and pick a secret emoji */
+    async newPlayer(name, emoji) {
+      await page.locator('#nm').fill(name);
+      await page.locator('#go').click();
+      await pickSecret(page, emoji);
+    },
+    storage: () =>
+      page.evaluate(() =>
+        Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)]))
+      ),
+    players: () => page.evaluate(() => JSON.parse(localStorage.getItem('capyIsland.players'))),
+    /** wait for the reload a player switch does, then for the game to be ready again */
+    async afterSwitch(action) {
+      await Promise.all([page.waitForEvent('load'), action()]);
+      await ready(page);
+    }
+  };
+}
 
 const test = base.test.extend({
-  // every uncaught page error fails the test
+  // every uncaught page error (on the main page or any extra phone) fails the test
   errors: [
     async ({ page }, use) => {
       const errors = [];
@@ -15,51 +64,29 @@ const test = base.test.extend({
     { auto: true }
   ],
 
-  /**
-   * game.open({ cloud, storage }) loads the game.
-   *  - cloud: false (default) serves an empty js/config.js, i.e. local-only play;
-   *           true keeps the real config (the network to Supabase/CDNs is blocked either way,
-   *           so cloud mode runs "offline").
-   *  - storage: localStorage to start from (set before any game script runs).
-   */
   game: async ({ page }, use) => {
-    await page.context().route(/^https?:\/\/(?!localhost)/, r => r.abort());
-    const game = {
-      async open({ cloud = false, storage = {} } = {}) {
-        if (!cloud)
-          await page.route('**/js/config.js', r =>
-            r.fulfill({
-              contentType: 'text/javascript',
-              body: "const SUPABASE_URL = '';\nconst SUPABASE_ANON_KEY = '';\n"
-            })
-          );
-        await page.addInitScript(s => {
-          if (sessionStorage.getItem('seeded')) return;
-          sessionStorage.setItem('seeded', '1');
-          localStorage.clear();
-          for (const k in s) localStorage.setItem(k, s[k]);
-        }, storage);
-        await page.goto('/');
-        await page.waitForFunction(() => typeof loop === 'function' && islReady);
-      },
-      /** walk through the welcome screen and pick a secret emoji */
-      async newPlayer(name, emoji) {
-        await page.locator('#nm').fill(name);
-        await page.locator('#go').click();
-        await pickSecret(page, emoji);
-      },
-      storage: () =>
-        page.evaluate(() =>
-          Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)]))
-        ),
-      players: () => page.evaluate(() => JSON.parse(localStorage.getItem('capyIsland.players'))),
-      /** wait for the reload a player switch does, then for the game to be ready again */
-      async afterSwitch(action) {
-        await Promise.all([page.waitForEvent('load'), action()]);
-        await page.waitForFunction(() => typeof loop === 'function' && islReady);
-      }
-    };
-    await use(game);
+    await use(gameOn(page));
+  },
+
+  /** another phone: newPhone() opens a fresh browser context (its own storage) and returns game helpers */
+  newPhone: async ({ browser, errors }, use, testInfo) => {
+    const contexts = [];
+    await use(async () => {
+      const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, baseURL } = testInfo.project.use;
+      const ctx = await browser.newContext({
+        viewport,
+        userAgent,
+        deviceScaleFactor,
+        isMobile,
+        hasTouch,
+        baseURL
+      });
+      contexts.push(ctx);
+      const page = await ctx.newPage();
+      page.on('pageerror', e => errors.push(e.message));
+      return gameOn(page);
+    });
+    await Promise.all(contexts.map(c => c.close()));
   }
 });
 

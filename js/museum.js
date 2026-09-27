@@ -455,7 +455,7 @@ window.openMirror = () => {
      return `<div class="cell ${myAcc() === a ? 'on' : ''} ${got ? '' : 'locked'}" onclick="${got ? `setLook(null,'${a}')` : `accTip('${a}')`}">${accCv(a)}<small>${got ? A.n : '🔒 ' + A.h}</small></div>`;
    })
    .join('')}</div>
- <div class="row"><button class="btn" onclick="closeModal();${inHouse ? 'busy=true' : ''}">Done 💕</button></div>`;
+ <div class="row"><button class="btn white" onclick="openEmotes('mirror')">😊 My emotes</button><button class="btn" onclick="closeModal();${inHouse ? 'busy=true' : ''}">Done 💕</button></div>`;
   modal(h);
   drawMirror();
   paintAccCanvases();

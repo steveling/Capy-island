@@ -673,8 +673,16 @@ const CAPY = {
   blush: { n: 'Blush', b: '#f9c3d8', l: '#ffe2ee', d: '#e19ab8', s: '#eeaac6' },
   rose: { n: 'Rose', b: '#ee6fa8', l: '#f9a6cb', d: '#c9508a', s: '#dc5e98' }
 };
-const EMOTES = ['👋', '💖', '😂', '⭐', '✨', '🎵'],
-  STAMPS = ['🌸', '🍊', '🐾', '⭐', '🎀', '🌈'];
+// every emote a player can put in their quick bar; sent over the network as an index into this list.
+// The first six are the original fixed emotes, in the original order, so older versions still understand them.
+// prettier-ignore
+const EMOTE_POOL = [
+  '👋', '💖', '😂', '⭐', '✨', '🎵',
+  '🥰', '😎', '🤩', '😴', '😮', '🥺', '🤗', '👍', '👏', '🙌', '🎉', '💤',
+  '🌸', '🌈', '🍊', '🐟', '🦋', '🎁', '🏝️', '♨️', '🍰', '❓', '❗', '💯'
+];
+const EMOTE_SLOTS = 6;
+const STAMPS = ['🌸', '🍊', '🐾', '⭐', '🎀', '🌈'];
 const WRAPS = {
   pink: '#ff8cc6',
   mint: '#5fd3a8',

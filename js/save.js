@@ -26,13 +26,18 @@ const MP = {
   dockArg: null,
   to: null,
   tries: 0,
-  emoT: 0,
+  emoT: -9,
   offline: false,
   friend: null,
   dropin: false,
   clLobby: null,
   clT: null,
-  newFriend: null
+  newFriend: null,
+  // chat (js/chat.js): the log, speech bubbles by player id, unread count, my last send time
+  chat: [],
+  say: new Map(),
+  chatUnread: 0,
+  chatT: -9
 };
 const VIS = () => MP.role === 'visitor' || MP.role === 'connecting';
 const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's island
@@ -79,7 +84,8 @@ function newSave() {
     art: { day: 0, stock: [], here: false, lastDay: 0 },
     wish: { n: 0 },
     gotTools: 0,
-    v4news: 1
+    v4news: 1,
+    emotes: [0, 1, 2, 3, 4, 5]
   };
 }
 let S;
@@ -127,6 +133,13 @@ let v4news = false;
   });
   if (!CAPY[S.color]) S.color = 'pink';
   Object.keys(d.accs).forEach(a => (S.accs[a] = 1));
+  if (
+    !Array.isArray(S.emotes) ||
+    S.emotes.length !== EMOTE_SLOTS ||
+    new Set(S.emotes).size !== EMOTE_SLOTS ||
+    !S.emotes.every(i => Number.isInteger(i) && EMOTE_POOL[i])
+  )
+    S.emotes = d.emotes.slice();
   if (!ACCS[S.acc] || !S.accs[S.acc]) S.acc = 'bow';
   NEIGH.forEach(n => {
     if (S.neigh[n.id].f >= 7) S.accs[NEIGH_ACC[n.id]] = 1;
@@ -191,6 +204,7 @@ const CL = {
   tracked: '',
   pipes: new Map(),
   dropins: true,
+  chat: true, // grown-ups switch: typed chat with best friends
   upT: null,
   firstDirty: 0,
   uploading: null,
@@ -209,6 +223,7 @@ if (CL.on) {
     CL.meta = {};
   }
   CL.dropins = CL.meta.dropins !== false;
+  CL.chat = CL.meta.chat !== false;
   CL.status = CL.meta.moved ? 'moved' : 'off';
   CL.friends = (Array.isArray(CL.meta.friends) ? CL.meta.friends : [])
     .filter(f => f && /^[0-9a-f-]{36}$/.test(f.id))
