@@ -503,48 +503,68 @@ function showNews(next) {
  <p class="c" style="font-size:15px">🎁 Berry left you a <b>shovel</b> 🪏, a <b>watering can</b> 💧, and <b>tulip seeds</b> 🌱.<br>⭐ Dig up star cracks · 🌷 plant flowers · 🌊 check the tide pools · 🎈 pop balloons · 🌠 wish on shooting stars at night · 🪞 try the new mirror in your house!</p>
  <div class="row"><button class="btn" onclick="newsClose()">Let's go! 🩷</button></div>`);
 }
-// ----- what's new in v5 (shown once to each existing island, after any secret-emoji prompt and museum news)
+// ----- what's new: each card has the news version it arrived in. An island sees the cards newer than what it
+// has seen (S.news), newest first, once, after any secret-emoji prompt and the museum news
 const WHATS_NEW = [
   [
+    6,
+    '🎨',
+    'Drawing board',
+    'Paint a picture on the big board by your house! Your best friends can see it when they visit.'
+  ],
+  [
+    5,
     '👥',
     'Take turns!',
     'Everyone can have their own island. Tap your name at the top to switch, and pick a secret emoji 🤫 so only you can open yours.'
   ],
   [
+    5,
     '💬',
     'Chat with best friends',
     'When a best friend visits, tap 💬 to say hi! Mean words turn into cute emojis 🌸'
   ],
   [
+    5,
     '😊',
     'Your own emotes',
     'Pick your favourite emojis with ✏️ on the emote bar, or in the Mirror. They float up into the sky!'
   ],
-  ['🏠', 'Peek inside', "Best friends can look around each other's houses."],
+  [5, '🏠', 'Peek inside', "Best friends can look around each other's houses."],
   [
+    5,
     '💤',
     'Shh, napping!',
     "Visit a friend who isn't playing and they're asleep in bed. Listen for the snores!"
   ],
   [
+    5,
     '🎣',
     'Better fishing',
     'A real fishing rod! Watch out for tricky nibbles, and fish your neighbours want bite more often.'
   ],
   [
+    5,
     '🔊',
     'New sounds',
     'Everything you do has its own sound, and Mochi, Pip and Puddle have their own voices.'
   ],
-  ['📱', 'Little fixes', 'Buttons stay on screen on small phones, and pressing back asks before you leave.']
+  [
+    5,
+    '📱',
+    'Little fixes',
+    'Buttons stay on screen on small phones, and pressing back asks before you leave.'
+  ]
 ];
 function showWhatsNew() {
   modal(
     `<h2>🎉 New on Capy Island!</h2><p class="c" style="margin-top:0">Hi ${esc(S.name)}! Here's what's new:</p><div class="news">` +
-      WHATS_NEW.map(
-        ([e, t, d]) => `<div class="nw"><span class="ne">${e}</span><span><b>${t}</b>${d}</span></div>`
-      ).join('') +
-      `</div><p class="c" style="font-size:13px">Grown-ups: hold ⚙️ for the chat switch, secret emoji resets, and bringing a player over from another phone.</p>` +
+      WHATS_NEW.filter(([v]) => v > S.news)
+        .map(
+          ([, e, t, d]) => `<div class="nw"><span class="ne">${e}</span><span><b>${t}</b>${d}</span></div>`
+        )
+        .join('') +
+      `</div><p class="c" style="font-size:13px">Grown-ups: hold ⚙️ for the chat and drawing switches, secret emoji resets, and bringing a player over from another phone.</p>` +
       `<div class="row"><button class="btn" onclick="whatsNewDone()">Let's play! 🩷</button></div>`
   );
 }
