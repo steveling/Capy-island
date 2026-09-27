@@ -20,12 +20,32 @@ function maybeVisit() {
     setTimeout(() => openDock('visit', c), 700);
   }
 }
+// a fun, safe starting name (#6): a cozy word + a cute word, both from hand-picked lists, 12 letters max
+// prettier-ignore
+const NAME_A = ['Sunny', 'Happy', 'Bubbly', 'Fuzzy', 'Sleepy', 'Cozy', 'Lucky', 'Jolly', 'Peachy', 'Minty', 'Comfy',
+  'Giggly', 'Sweet', 'Silly', 'Tiny', 'Brave', 'Merry', 'Rosy', 'Dreamy', 'Zippy', 'Bouncy', 'Cuddly', 'Fluffy',
+  'Starry', 'Misty', 'Breezy', 'Twinkly', 'Snuggly'],
+  NAME_B = ['Bean', 'Mochi', 'Boba', 'Peach', 'Plum', 'Pip', 'Muffin', 'Cookie', 'Bun', 'Waffle', 'Pebble', 'Clover',
+  'Button', 'Biscuit', 'Noodle', 'Sprout', 'Maple', 'Honey', 'Berry', 'Puff', 'Pudding', 'Cupcake', 'Yuzu', 'Kiwi',
+  'Mango', 'Coco', 'Lychee', 'Pancake', 'Tofu', 'Daisy'];
+const NAMES = NAME_A.flatMap(a => NAME_B.filter(b => !a.startsWith(b)).map(b => a + ' ' + b)).filter(
+  n => n.length <= 12
+);
+const funName = () => pick(NAMES);
+window.rollName = () => {
+  const i = $('#nm');
+  if (!i) return;
+  let n = funName();
+  while (NAMES.length > 1 && n === i.value) n = funName();
+  i.value = n;
+  SND.pop();
+};
 function welcome() {
   modal(
-    `<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.<br>🏛️ Visit the museum and café!<br>✈️ Tap the seaplane to visit friends!</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>${CL.on ? '<p class="c" style="font-size:13px;margin:12px 0 0"><a href="#" style="color:#b0487c" onclick="clMoveHere();return false">📱 Moving from another phone? (grown-ups)</a></p>' : ''}`
+    `<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><div class="nmrow"><input class="name" id="nm" maxlength="12" value="${esc(funName())}" aria-label="Your name"><button class="btn white" onclick="rollName()" aria-label="Pick another name" title="Pick another name">🎲</button></div><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.<br>🏛️ Visit the museum and café!<br>✈️ Tap the seaplane to visit friends!</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>${CL.on ? '<p class="c" style="font-size:13px;margin:12px 0 0"><a href="#" style="color:#b0487c" onclick="clMoveHere();return false">📱 Moving from another phone? (grown-ups)</a></p>' : ''}`
   );
   $('#go').onclick = () => {
-    S.name = ($('#nm').value.trim() || 'Emi').slice(0, 12);
+    S.name = ($('#nm').value.trim() || funName()).slice(0, 12);
     closeModal();
     newDay(true);
     hud();

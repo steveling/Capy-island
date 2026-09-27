@@ -1315,3 +1315,17 @@ body.chatting #bottom button {
   z-index: 70;
   padding: 14px;
 }
+/* welcome: name box + 🎲 for another fun name (#6) */
+.nmrow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.nmrow input.name {
+  flex: 1;
+  min-width: 0;
+}
+.nmrow .btn {
+  font-size: 26px;
+  padding: 0 12px;
+}
