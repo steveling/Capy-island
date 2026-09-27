@@ -66,35 +66,26 @@ function sayBubble(x, y, text, age) {
   ctx.restore();
   return h + 7;
 }
-function emoBubble(x, y, e, age) {
-  const T = 2.6;
-  if (age > T) return;
-  const s = age < 0.15 ? (age / 0.15) * 1.25 : age < 0.3 ? 1.25 - ((age - 0.15) / 0.15) * 0.25 : 1,
-    a = age > T - 0.4 ? (T - age) / 0.4 : 1;
-  ctx.save();
-  ctx.globalAlpha = a;
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  ctx.fillStyle = 'rgba(150,40,90,.18)';
-  ctx.beginPath();
-  ctx.ellipse(2, -22, 24, 21, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.ellipse(0, -24, 24, 21, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-6, -6);
-  ctx.lineTo(0, 4);
-  ctx.lineTo(6, -6);
-  ctx.fill();
-  ctx.strokeStyle = '#ff8cc6';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.ellipse(0, -24, 24, 21, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  emoji(e, 0, -24, 28);
-  ctx.restore();
+// an emote floats up from the player like smoke: a few puffs of the emoji, one after another, each one
+// rising, swaying, growing a little and fading away
+const EMO_PUFFS = 5,
+  EMO_GAP = 0.22, // seconds between puffs
+  EMO_RISE = 2.1, // seconds each puff is in the air
+  EMO_LIFE = EMO_PUFFS * EMO_GAP + EMO_RISE;
+function emoSmoke(x, y, list) {
+  list.forEach(m => {
+    for (let k = 0; k < EMO_PUFFS; k++) {
+      const a = time - m.t - k * EMO_GAP;
+      if (a < 0 || a > EMO_RISE) continue;
+      const side = k % 2 ? 1 : -1,
+        px = x + Math.sin(a * 2.4 + k * 1.9) * (5 + a * 10) + side * a * 9,
+        py = y - a * 62 + a * a * 6,
+        fade = a < 0.15 ? a / 0.15 : a > 0.8 ? 1 - (a - 0.8) / (EMO_RISE - 0.8) : 1;
+      ctx.globalAlpha = Math.max(0, fade) * (k ? 0.85 : 1);
+      emoji(m.e, px, py, (k ? 15 : 20) + a * 9);
+    }
+  });
+  ctx.globalAlpha = 1;
 }
 function render() {
   if (!ISL_CV) buildIsland();
@@ -252,7 +243,7 @@ function render() {
     ctx.ellipse(P.tx, P.ty, 10, 4, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  // names + emote bubbles always on top so everyone can read them
+  // names, chat bubbles and emote smoke always on top so everyone can see them
   tags.forEach(t => {
     const ty = t.y + t.top - 8;
     nameTag(t.x, ty, t.name || 'Friend', t.col);
@@ -260,7 +251,7 @@ function render() {
     const say = MP.say.get(t.id);
     if (say && time - say.t < SAY_T) by -= sayBubble(t.x, by, say.x, time - say.t) + 6;
     const em = MP.emo.get(t.id);
-    if (em) emoBubble(t.x, by, em.e, time - em.t);
+    if (em) emoSmoke(t.x, by + 4, em); // rising from just above their name (and any chat bubble)
   });
   parts.forEach(p => {
     ctx.globalAlpha = Math.min(1, p.life);

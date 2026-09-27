@@ -151,9 +151,12 @@ function rpUpdate(r, dt) {
   r.face = s.f;
   r.soak = s.s;
 }
+// each player's recent emotes, drawn as puffs of emoji smoke (emoSmoke in render.js); several can be in the air
 function showEmo(id, i) {
   if (!EMOTE_POOL[i]) return;
-  MP.emo.set(id, { e: EMOTE_POOL[i], t: time });
+  const l = (MP.emo.get(id) || []).filter(m => time - m.t < EMO_LIFE);
+  l.push({ e: EMOTE_POOL[i], t: time });
+  MP.emo.set(id, l.slice(-4));
   SND.pop();
 }
 function cleanupPeer() {
