@@ -31,6 +31,9 @@ function tapWorld(x, y) {
     toast(`Shh... ${hostName()} is taking a nap 💤`);
     return;
   }
+  // tapping another player: ask to be best friends (js/befriend.js)
+  if (MP.role)
+    for (const r of MP.players.values()) if (dist(x, y, r.x, r.y - 22) < 26 && befriendTap(r.id)) return;
   for (const b of bugs)
     if (dist(x, y, b.x, b.y - 10) < 34) {
       P.act = { k: 'bug', b };

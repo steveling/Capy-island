@@ -45,7 +45,7 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
-const NEWS_V = 6;
+const NEWS_V = 7;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 function newSave() {
   const neigh = {};
@@ -89,6 +89,7 @@ function newSave() {
     v4news: 1,
     news: NEWS_V,
     board: '', // the drawing board outside (js/board.js): '' blank, or 768 hex digits
+    code: '', // this island's own visiting code (island-code visits), made the first time it opens
     emotes: [0, 1, 2, 3, 4, 5]
   };
 }
@@ -165,6 +166,12 @@ let v4news = false;
   }
   S.news = newsBefore;
   if (typeof S.board !== 'string' || !(S.board === '' || /^[0-9a-f]{768}$/.test(S.board))) S.board = '';
+  if (
+    typeof S.code !== 'string' ||
+    !/^[A-Z0-9]{5}$/.test(S.code) ||
+    [...S.code].some(c => !CODE_ABC.includes(c))
+  )
+    S.code = '';
 })();
 function save() {
   if (VIS() || restoring) return;
@@ -214,6 +221,7 @@ const CL = {
   dropins: true,
   chat: true, // grown-ups switch: typed chat with best friends
   boards: true, // grown-ups switch: seeing best friends' drawing boards
+  freq: true, // grown-ups switch: making new best friends while visiting
   upT: null,
   firstDirty: 0,
   uploading: null,
@@ -234,6 +242,7 @@ if (CL.on) {
   CL.dropins = CL.meta.dropins !== false;
   CL.chat = CL.meta.chat !== false;
   CL.boards = CL.meta.boards !== false;
+  CL.freq = CL.meta.freq !== false;
   CL.status = CL.meta.moved ? 'moved' : 'off';
   CL.friends = (Array.isArray(CL.meta.friends) ? CL.meta.friends : [])
     .filter(f => f && /^[0-9a-f-]{36}$/.test(f.id))

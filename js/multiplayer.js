@@ -207,6 +207,7 @@ function mpUI() {
   } else pill.classList.add('hidden');
   hud();
   chatUI();
+  befriendTidy();
   if (CL.on) {
     clTrack();
     if (CL.inbox && !VIS()) clApplyInbox();
@@ -297,8 +298,15 @@ window.openIsland = () => {
   mpUI();
   openDock();
 };
-function hostStart() {
-  MP.code = genCode();
+// Each island keeps one code (saved with it), so friends can use the same code every time. If the code is
+// taken, it's usually this island's own last session still letting go of it: wait and try the same code
+// again. Only if it stays taken does the island get a new code (saved, so it's the new one from then on).
+function hostStart(fresh) {
+  if (fresh || !S.code) {
+    S.code = genCode();
+    save();
+  }
+  MP.code = S.code;
   let p;
   try {
     p = new Peer(PEER_PREFIX + MP.code, PEER_OPTS);
@@ -329,12 +337,20 @@ function hostStart() {
   p.on('error', e => {
     if (MP.peer !== p) return;
     const t = e && e.type;
-    if (t === 'unavailable-id' && MP.tries++ < 3) {
+    if (t === 'unavailable-id') {
       MP.peer = null;
       try {
         p.destroy();
       } catch (x) {}
-      hostStart();
+      clearTimeout(MP.to);
+      const again = MP.tries++ < 4; // the same code, a few seconds apart, then a new one
+      if (!again && MP.tries > 6) return hostFail();
+      MP.to = setTimeout(
+        () => {
+          if (MP.role === 'host' && MP.hostState === 'opening' && !MP.peer) hostStart(!again);
+        },
+        again ? 2500 : 0
+      );
       refreshDock();
       return;
     }
@@ -483,6 +499,7 @@ function hostConn(conn) {
       } catch (e) {}
       toast(`🎁 ${esc(v.name)} left you a present!<br>It will be on your beach tomorrow.`, 3500);
     } else if (d.t === 'chat') chatFromVisitor(v, d);
+    else if (d.t === 'freq' || d.t === 'fres') befriendRelay(v, d);
     else if (d.t === 'bye') dropVisitor(v.id, 'left');
   });
   conn.on('close', () => {
@@ -738,6 +755,12 @@ function visitorData(d) {
       break;
     case 'chat':
       chatFromHost(d);
+      break;
+    case 'freq':
+      befriendIncoming(d);
+      break;
+    case 'fres':
+      befriendResult(d);
       break;
     case 'ok':
       if (d.k === 'sign') toast(`📝 You signed ${hostName()}'s guestbook! 💕`, 2600);
@@ -1070,7 +1093,7 @@ window.openDock = (view, prefill) => {
         )
         .join('')}</div><div class="row"><button class="btn white" onclick="openDock()">Back</button></div>`;
     else
-      h += `<p class="c">You're visiting <b>${hn}</b>'s island! 🏝️</p>${MP.offline ? `<p class="note" style="margin-top:0">💤 ${hn} isn't playing right now. Your stamp and present will be waiting for them!</p>` : ''}<button class="btn big" ${MP.signed ? 'disabled' : ''} onclick="openDock('stamp')">${MP.signed ? 'Guestbook signed ✓' : 'Sign the guestbook 📝'}</button><button class="btn big" ${MP.gave ? 'disabled' : ''} onclick="openDock('wrap')">${MP.gave ? 'Present left ✓' : 'Leave a present 🎁'}</button><button class="btn big white" onclick="leaveIsland()">Fly home ✈️</button><div class="row"><button class="btn white" onclick="closeModal()">Keep playing</button></div>`;
+      h += `<p class="c">You're visiting <b>${hn}</b>'s island! 🏝️</p>${MP.offline ? `<p class="note" style="margin-top:0">💤 ${hn} isn't playing right now. Your stamp and present will be waiting for them!</p>` : ''}<button class="btn big" ${MP.signed ? 'disabled' : ''} onclick="openDock('stamp')">${MP.signed ? 'Guestbook signed ✓' : 'Sign the guestbook 📝'}</button><button class="btn big" ${MP.gave ? 'disabled' : ''} onclick="openDock('wrap')">${MP.gave ? 'Present left ✓' : 'Leave a present 🎁'}</button>${befriendDockHtml()}<button class="btn big white" onclick="leaveIsland()">Fly home ✈️</button><div class="row"><button class="btn white" onclick="closeModal()">Keep playing</button></div>`;
   } else if (view === 'visit') {
     if (MP.role === 'host') {
       view = 'main';

@@ -2,14 +2,34 @@
 // already there). Sign-ins are stored under their storageKey like the real library, so the tests see the
 // same localStorage keys the game juggles. RPCs answer from `rpc` handlers; anything else fails like an
 // offline cloud, so the game just runs in its "cloud offline" state.
+//   fakeCloud(page, { claim: { code, save, ts } })   a moving code claim_transfer accepts
+//   fakeCloud(page, { rpc: { fn: answer } })         fixed answers, e.g. open_island: 'CATCD', or
+//                                                    my_cloud_status: {...} to bring the cloud "online".
+//     join_by_code: { CODE: { owner, name } }        codes that exist; joining one makes that owner a best
+//                                                    friend, which list_friends then includes
 async function fakeCloud(page, rpc = {}) {
   await page.addInitScript(handlers => {
+    const fixed = handlers.rpc || {},
+      made = () => JSON.parse(sessionStorage.getItem('__friends') || '[]');
     const answer = {
       claim_transfer: args =>
         handlers.claim && args.p_code === handlers.claim.code
           ? { save: handlers.claim.save, save_ts: handlers.claim.ts }
           : null
     };
+    for (const fn of Object.keys(fixed)) answer[fn] = () => fixed[fn];
+    if (fixed.join_by_code)
+      answer.join_by_code = args => {
+        const r = fixed.join_by_code[args.p_code] || null;
+        if (r)
+          sessionStorage.setItem(
+            '__friends',
+            JSON.stringify(made().concat({ friend: r.owner, name: r.name }))
+          );
+        return r;
+      };
+    if (fixed.list_friends || fixed.join_by_code)
+      answer.list_friends = () => (fixed.list_friends || []).concat(made());
     let n = 0;
     window.supabase = {
       createClient(url, key, opts) {

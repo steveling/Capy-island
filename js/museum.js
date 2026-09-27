@@ -507,6 +507,12 @@ function showNews(next) {
 // has seen (S.news), newest first, once, after any secret-emoji prompt and the museum news
 const WHATS_NEW = [
   [
+    7,
+    '💕',
+    'Make new friends',
+    'Visiting a friend with someone else there too? Tap their capybara to ask them to be best friends!'
+  ],
+  [
     6,
     '🎨',
     'Drawing board',
