@@ -25,6 +25,8 @@ const PEER_OPTS = {
 const PEER_PREFIX = 'capyisland-',
   MAX_VIS = 3;
 const peerOK = () => typeof window.Peer === 'function';
+// a connection over a private cloud channel: the server only opens those between best friends
+const cloudConn = c => !!(c && c.cloud);
 const OFFLINE_MSG =
   "The seaplane radio isn't working right now. 📡<br>Visiting needs the internet.<br>You can still play on your island! 🏝️";
 function genCode() {
@@ -72,11 +74,15 @@ function cleanIsland(i) {
         : null;
     }),
     color: cleanColor(i.color),
-    acc: cleanAcc(i.acc)
+    acc: cleanAcc(i.acc),
+    // the inside of their house: only sent to best friends; anything that isn't furniture is dropped
+    room: Array.isArray(i.room) ? Array.from({ length: 20 }, (_, k) => furn(i.room[k])) : null
   };
 }
-function snapshot() {
-  return {
+// what visitors see of my island. Only best friends (cloud connections, and the friends-only cloud copy)
+// also get the furniture inside my house (#5); island-code visitors never receive it.
+function snapshot(friend) {
+  const s = {
     name: S.name,
     day: S.day,
     trees: S.trees.slice(),
@@ -89,6 +95,8 @@ function snapshot() {
     color: myColor(),
     acc: myAcc()
   };
+  if (friend) s.room = S.room.slice();
+  return s;
 }
 function addPlayer(id, name, color, stack, x, y) {
   const r = {
@@ -224,15 +232,17 @@ function mpUpdate(dt) {
     if (v.last) all.push(v.last);
   });
   const nb = NEIGH.map(n => [Math.round(n.x), Math.round(n.y), n.face, n.soak ? 1 : 0]);
-  let isl = null;
+  let isl = null,
+    islF = null;
   if (MP.dirty && now - MP.islT > 800) {
     MP.dirty = false;
     MP.islT = now;
-    const s = snapshot(),
+    const s = snapshot(true),
       j = JSON.stringify(s);
     if (j !== MP.islJ) {
       MP.islJ = j;
-      isl = s;
+      islF = s;
+      isl = snapshot();
     }
   }
   MP.vis.forEach(v => {
@@ -243,7 +253,7 @@ function mpUpdate(dt) {
     if (!v.conn.open) return;
     try {
       v.conn.send({ t: 'ps', l: all.filter(a => a[0] !== v.id), nb });
-      if (isl) v.conn.send({ t: 'isl', isl });
+      if (isl) v.conn.send({ t: 'isl', isl: cloudConn(v.conn) ? islF : isl });
     } catch (e) {}
   });
 }
@@ -399,7 +409,7 @@ function hostConn(conn) {
         conn.send({
           t: 'snap',
           me: v.id,
-          isl: snapshot(),
+          isl: snapshot(cloudConn(conn)),
           pl,
           nb: NEIGH.map(n => [Math.round(n.x), Math.round(n.y), n.face, n.soak ? 1 : 0])
         });
@@ -716,6 +726,7 @@ function visitorData(d) {
       break;
     case 'isl':
       MP.island = cleanIsland(d.isl);
+      if (!$('#house').classList.contains('hidden')) drawRoom();
       break;
     case 'chat':
       chatFromHost(d);
@@ -843,6 +854,7 @@ function returnHome(reason) {
   closeModal();
   $('#museum').classList.add('hidden');
   document.body.classList.remove('inmus');
+  $('#house').classList.add('hidden');
   $('#emobar').classList.add('hidden');
   P.soak = false;
   P.act = null;

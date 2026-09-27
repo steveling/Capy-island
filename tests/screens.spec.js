@@ -58,3 +58,57 @@ test('the bottom buttons open the bag and the book', async ({ page, game }) => {
   await expect(page.locator('#card')).toBeVisible();
   expect(await page.locator('#card h2').textContent()).not.toBe(bag);
 });
+
+test.describe('long screens keep their buttons on screen (#3)', () => {
+  // a small phone (360x640), where the museum and shop run past the bottom of the screen
+  test.use({ viewport: { width: 360, height: 640 } });
+  // lots of different things in the bag, so the shop and bag lists are long
+  const fill = page =>
+    page.evaluate(() => {
+      Object.keys(ITEMS)
+        .filter(k => ITEMS[k].k !== 'tool' && !ITEMS[k].ns)
+        .slice(0, 40)
+        .forEach(k => addItem(k, 2));
+      save();
+    });
+
+  test('shop: the list scrolls, the goodbye button stays put', async ({ page, game }) => {
+    await game.open();
+    await game.newPlayer('Ada', '🦄');
+    await fill(page);
+    await page.evaluate(() => openShop());
+    const bye = page.getByRole('button', { name: 'Bye, Berry! 👋' });
+    await expect(bye).toBeInViewport({ ratio: 1 });
+    // scroll the list to the very end: still there, and the last item is reachable
+    await page.locator('#card').evaluate(c => (c.scrollTop = c.scrollHeight));
+    await expect(bye).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('#card .li').last()).toBeInViewport();
+    await bye.click();
+    await expect(page.locator('#modal')).toBeHidden();
+  });
+
+  test('bag: the close button stays on screen', async ({ page, game }) => {
+    await game.open();
+    await game.newPlayer('Ada', '🦄');
+    await fill(page);
+    await page.evaluate(() => bagView());
+    await expect(page.locator('#card > .row').last()).toBeInViewport({ ratio: 1 });
+  });
+
+  test('museum: the Leave button stays on screen while the cases scroll', async ({ page, game }) => {
+    await game.open();
+    await game.newPlayer('Ada', '🦄');
+    await page.evaluate(() => openMuseum('bug'));
+    const leave = page.getByRole('button', { name: 'Leave 🚪' });
+    // the page really is longer than the screen here
+    expect(await page.locator('#museum').evaluate(m => m.scrollHeight > m.clientHeight)).toBe(true);
+    await expect(leave).toBeInViewport({ ratio: 1 });
+    await page.locator('#museum').evaluate(m => (m.scrollTop = m.scrollHeight));
+    await expect(leave).toBeInViewport({ ratio: 1 });
+    // the café too
+    await page.evaluate(() => mvTab('cafe'));
+    await expect(leave).toBeInViewport({ ratio: 1 });
+    await leave.click();
+    await expect(page.locator('#museum')).toBeHidden();
+  });
+});

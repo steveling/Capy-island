@@ -53,7 +53,8 @@ function doAct(a) {
     openFPresent(a.i);
   } else if (a.k === 'house') {
     if (vis) {
-      toast(`That's ${hostName()}'s house! 🏠`);
+      if (MP.island.room) openHouse();
+      else toast(`That's ${hostName()}'s house! 🏠`);
       return;
     }
     openHouse();

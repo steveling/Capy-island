@@ -25,6 +25,7 @@ function gameOn(page) {
           })
         );
       await page.addInitScript(s => {
+        if (!location.protocol.startsWith('http')) return; // e.g. about:blank after going back
         if (sessionStorage.getItem('seeded')) return;
         sessionStorage.setItem('seeded', '1');
         localStorage.clear();

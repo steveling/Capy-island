@@ -52,7 +52,6 @@ function cleanChat(t) {
   return s.trim();
 }
 
-const cloudConn = c => !!(c && c.cloud);
 function chatOn() {
   return CL.on && CL.chat;
 }
