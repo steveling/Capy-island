@@ -1,0 +1,15 @@
+{
+  "name": "capy-island",
+  "private": true,
+  "description": "Capy Island: a cozy capybara island game (static site, no build step).",
+  "scripts": {
+    "start": "node tests/server.js",
+    "test": "playwright test",
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "prettier": "^3.6.2"
+  }
+}
