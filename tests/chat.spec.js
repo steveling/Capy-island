@@ -226,3 +226,69 @@ test('the emote bar and the chat panel never cover each other', async ({ game, n
   await expect(ben.locator('#chat')).toBeVisible();
   await expect(ben.locator('#emobar')).toBeHidden();
 });
+
+test.describe('phone keyboard', () => {
+  // headless Chromium has no on-screen keyboard: stand in for window.visualViewport, and "open" a keyboard
+  // by shrinking it from the bottom the way iOS Safari and Android Chrome do
+  const fakeKeyboard = page =>
+    page.addInitScript(() => {
+      const vv = new EventTarget();
+      Object.assign(vv, { height: innerHeight, width: innerWidth, offsetTop: 0, offsetLeft: 0, scale: 1 });
+      Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+      // px: keyboard height; pan: how far iOS scrolled the visible area down to show the focused box
+      window.__keyboard = (px, pan = 0) => {
+        vv.offsetTop = pan;
+        vv.height = innerHeight - px - pan;
+        vv.dispatchEvent(new Event('resize'));
+      };
+    });
+  const box = (page, sel) => page.locator(sel).boundingBox();
+
+  test('the chat box moves above the keyboard, and back down when it closes', async ({ game, newPhone }) => {
+    await fakeKeyboard(game.page);
+    const { ben } = await adaAndBen(game, newPhone);
+    const ada = game.page;
+    await say(ben, 'hi!');
+    await ada.locator('#bChat').click();
+    const H = await ada.evaluate(() => innerHeight);
+    const closed = await box(ada, '#chat');
+
+    // a tall keyboard, like a phone in landscape or with suggestions: 60% of the screen
+    const kb = Math.round(H * 0.6);
+    await ada.evaluate(px => window.__keyboard(px), kb);
+    await expect
+      .poll(async () => {
+        const b = await box(ada, '#chat');
+        return b.y + b.height <= H - kb && b.y >= 0;
+      })
+      .toBe(true);
+    const inp = await box(ada, '#chatin');
+    expect(inp.y + inp.height).toBeLessThanOrEqual(H - kb);
+    // the log still shows the last message
+    await expect(ada.locator('#chatlog .cl').last()).toBeInViewport();
+
+    await ada.evaluate(() => window.__keyboard(0));
+    await expect.poll(async () => (await box(ada, '#chat')).y).toBeCloseTo(closed.y, 0);
+  });
+
+  test('iOS panning the page to the text box: the whole chat box stays in view', async ({
+    game,
+    newPhone
+  }) => {
+    await fakeKeyboard(game.page);
+    const { ben } = await adaAndBen(game, newPhone);
+    const ada = game.page;
+    await say(ben, 'hi!');
+    await ada.locator('#bChat').click();
+    const H = await ada.evaluate(() => innerHeight);
+    const kb = Math.round(H * 0.45),
+      pan = 120;
+    await ada.evaluate(([px, p]) => window.__keyboard(px, p), [kb, pan]);
+    await expect
+      .poll(async () => {
+        const b = await box(ada, '#chat');
+        return b.y >= pan && b.y + b.height <= H - kb;
+      })
+      .toBe(true);
+  });
+});

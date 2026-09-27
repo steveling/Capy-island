@@ -182,6 +182,27 @@ function chatUI() {
   b.textContent = MP.chatUnread > 9 ? '9+' : String(MP.chatUnread);
   b.classList.toggle('hidden', !MP.chatUnread);
 }
+// ----- phone keyboards: keep the chat box above them
+// On-screen keyboards shrink only the *visual* viewport (iOS Safari, Android Chrome), so a panel fixed to the
+// bottom of the page ends up behind them. Measure how much of the page the keyboard covers and lift the
+// panel just above it; the log gets shorter so the whole panel still fits in what's left.
+function chatKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const covered = Math.max(0, Math.round(innerHeight - (vv.height + vv.offsetTop))),
+    st = document.documentElement.style;
+  st.setProperty('--kb', covered + 'px');
+  st.setProperty('--vvh', Math.round(vv.height) + 'px');
+  document.body.classList.toggle('kb', covered > 60);
+  if (covered > 60) {
+    const log = $('#chatlog');
+    log.scrollTop = log.scrollHeight;
+  }
+}
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', chatKeyboard);
+  visualViewport.addEventListener('scroll', chatKeyboard);
+}
 $('#bChat').onclick = () => ($('#chat').classList.contains('hidden') ? chatOpen() : chatClose());
 $('#chatsend').onclick = chatSend;
 $('#chatx').onclick = chatClose;
