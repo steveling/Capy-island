@@ -1334,3 +1334,14 @@ body.chatting #bottom button {
 #house.guest .mirror {
   display: none;
 }
+/* "Player from another phone" steps */
+.steps {
+  margin: 4px 0 10px;
+  padding-left: 22px;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.steps li {
+  margin: 4px 0;
+}
