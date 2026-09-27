@@ -135,8 +135,9 @@ function plUnpark(id) {
     localStorage.removeItem(k);
   });
 }
-// id = a player to fly to, or null for a brand-new player (the welcome screen asks their name)
-async function plGo(id) {
+// id = a player to fly to, or null for a new player: a brand-new one (the welcome screen asks their name),
+// or one arriving from elsewhere, whose island arrive() writes into the live keys once mine are parked
+async function plGo(id, arrive) {
   if (MP.role) {
     toast('Please finish visiting / close your island first. ✈️', 3000);
     return;
@@ -154,10 +155,12 @@ async function plGo(id) {
   try {
     plPark(from);
     if (id) plUnpark(id);
+    else if (arrive) arrive();
     PL.active = id;
     localStorage.setItem(PL_KEY, JSON.stringify(PL));
   } catch (e) {
     try {
+      plKeys().forEach(k => localStorage.removeItem(k)); // anything half-written for the arriving player
       plUnpark(from);
     } catch (x) {}
     PL.active = from;
@@ -222,7 +225,9 @@ function openPlayers() {
     })
     .join('');
   modal(
-    `<h2>👥 Who's playing?</h2><div class="plist">${rows}</div><button class="btn big white" onclick="plNewAsk()">➕ New player</button><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`
+    `<h2>👥 Who's playing?</h2><div class="plist">${rows}</div><button class="btn big white" onclick="plNewAsk()">➕ New player</button>` +
+      (CL.on ? `<button class="btn big white" onclick="plFromPhone()">📲 From another phone</button>` : '') +
+      `<button class="btn big white" onclick="plFromBackup()">💾 From a backup</button><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`
   );
 }
 window.plPick = id => {
@@ -240,6 +245,137 @@ window.plNewAsk = () =>
   modal(
     `<h2>➕ New player</h2><div style="text-align:center;font-size:54px">🏝️</div><p class="c" style="font-size:17px">A new player gets their very own island!<br>${esc(S.name)}'s island will be safe and waiting. 💕</p><div class="row"><button class="btn" onclick="plGo(null)">Let's go! ✈️</button><button class="btn white" onclick="openPlayers()">Back</button></div>`
   );
+
+// ----- a player who played on another phone or browser comes to this one
+// Moving (cloud): the other browser makes a one-time code ("📱 Move to a new phone"). Claiming it moves the
+// island to whichever cloud sign-in makes the claim, so this uses a new, separate sign-in (stored under
+// XFER_AUTH, outside the live keys) and only switches players once the claim has worked: a wrong or old code
+// changes nothing here. The other browser stops cloud saving that island.
+const XFER_AUTH = 'capyIsland.xfer.auth';
+function xferKeys() {
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(XFER_AUTH)) out.push(k);
+  }
+  return out;
+}
+const xferClear = () => xferKeys().forEach(k => localStorage.removeItem(k));
+window.plFromPhone = msg => {
+  modal(
+    `<h2>📲 Player from another phone</h2>${msg ? `<p class="note">${msg}</p>` : ''}<ol class="steps"><li>On the <b>other</b> phone or browser, open Capy Island as that player.</li><li>A grown-up holds ⚙️ there and taps <b>“📱 Move to a new phone”</b>.</li><li>Type the code it shows:</li></ol>` +
+      `<input class="name" id="plxin" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" aria-label="Moving code" style="font-size:20px">` +
+      `<p class="c" style="font-size:13px">The island <b>moves</b> here as a new player, and the other phone stops saving it to the cloud. ${esc(S.name)}'s island stays safe on this phone.</p>` +
+      `<div class="row"><button class="btn" onclick="plClaimNew()">Bring them here ✈️</button><button class="btn white" onclick="openPlayers()">Back</button></div>`
+  );
+};
+window.plClaimNew = async () => {
+  const c = String(($('#plxin') || {}).value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  if (c.length !== 12) return plFromPhone('😕 Moving codes look like XXXX-XXXX-XXXX.');
+  if (MP.role) return plFromPhone('Please finish visiting / close your island first. ✈️');
+  if (!navigator.onLine) return plFromPhone('📡 Moving a player needs the internet.');
+  modal(
+    '<h2>📲 Moving...</h2><div style="text-align:center;font-size:56px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Bringing the island over...</p>'
+  );
+  xferClear();
+  let r = null,
+    uid = null,
+    err = '';
+  try {
+    await clLoad();
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: XFER_AUTH
+      }
+    });
+    const s = await sb.auth.signInAnonymously();
+    if (s.error) throw s.error;
+    uid = s.data.session.user.id;
+    const res = await sb.rpc('claim_transfer', { p_code: c });
+    if (res.error) throw new Error(res.error.message || 'claim_transfer');
+    r = res.data;
+  } catch (e) {
+    err = clErr(e) || 'net';
+  }
+  if (!r || !r.save || !UUID_RE.test(String(uid))) {
+    xferClear();
+    return plFromPhone(
+      err.includes('rate_limited')
+        ? '😕 Too many tries. Please wait a while and try again.'
+        : err
+          ? "📡 Couldn't reach the cloud. Check the internet and try again."
+          : "😕 That code didn't work. It may be mistyped, already used, or older than 24 hours."
+    );
+  }
+  let b;
+  try {
+    b = parseBackup(JSON.stringify(r.save));
+  } catch (e) {
+    xferClear();
+    return plFromPhone('😕 The island data looks damaged. Nothing was changed.');
+  }
+  const ts = Number(r.save_ts) || Date.now();
+  await plGo(null, () => {
+    // the arriving player's sign-in is the one that just claimed their island
+    xferKeys().forEach(k => {
+      localStorage.setItem('capyIsland.auth' + k.slice(XFER_AUTH.length), localStorage.getItem(k));
+      localStorage.removeItem(k);
+    });
+    localStorage.setItem(KEY, JSON.stringify(b.save));
+    localStorage.setItem(UNLOCK_KEY, '1'); // the moving code also unlocks the gate (server-side, in claim_transfer)
+    localStorage.setItem(
+      CMETA,
+      JSON.stringify({ uid, localTs: ts, syncedTs: ts, dirty: false, moved: false, friends: [] })
+    );
+  });
+};
+
+// From a backup (any mode): adds a *copy* of the island as a new player; the original keeps going on its own
+window.plFromBackup = msg => {
+  modal(
+    `<h2>💾 Player from a backup</h2>${msg ? `<p class="note">${msg}</p>` : ''}<p class="c" style="font-size:14px">Adds the island from a backup as a <b>new player</b> on this phone. It's a copy: the other one keeps going on its own.</p>` +
+      `<div class="row" style="margin-top:0"><label class="btn white">📂 Choose file<input type="file" id="plbkfile" accept=".json,application/json,text/plain" style="display:none"></label></div>` +
+      `<p class="c" style="font-size:14px;margin:10px 0 4px">…or paste a backup code:</p><textarea class="bk" id="plbkin" placeholder="Paste backup code here"></textarea>` +
+      `<div class="row"><button class="btn" onclick="plBackupAsk(document.getElementById('plbkin').value)">Add player</button><button class="btn white" onclick="openPlayers()">Back</button></div>`
+  );
+  $('#plbkfile').onchange = e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 2e6) return plFromBackup('😕 That file is too big to be a Capy Island backup.');
+    const rd = new FileReader();
+    rd.onload = () => plBackupAsk(String(rd.result));
+    rd.onerror = () => plFromBackup("😕 Couldn't read that file.");
+    rd.readAsText(f);
+  };
+};
+let plBk = null;
+window.plBackupAsk = txt => {
+  try {
+    plBk = parseBackup(txt);
+  } catch (e) {
+    plBk = null;
+    return plFromBackup("😕 That doesn't look like a Capy Island backup.");
+  }
+  const sv = plBk.save;
+  modal(
+    `<h2>💾 Add this player?</h2><p class="c" style="font-size:17px">Add <b>${esc(sv.name || 'this')}'s island</b> (🪙 ${sv.coins | 0}) as a new player on this phone?</p>` +
+      (CL.on
+        ? `<p class="c" style="font-size:13px">A grown-up will type the secret word once for the new player.</p>`
+        : '') +
+      `<div class="row"><button class="btn" onclick="plBackupAdd()">Yes, add them</button><button class="btn white" onclick="plFromBackup()">Cancel</button></div>`
+  );
+};
+window.plBackupAdd = () => {
+  const b = plBk;
+  if (!b) return;
+  plBk = null;
+  plGo(null, () => localStorage.setItem(KEY, JSON.stringify(b.save)));
+};
 
 // ----- switching to someone: tap your secret emoji (1 of 12)
 let pwFor = null,
