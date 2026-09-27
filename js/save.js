@@ -45,7 +45,7 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
-const NEWS_V = 5;
+const NEWS_V = 6;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 function newSave() {
   const neigh = {};
