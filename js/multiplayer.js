@@ -144,8 +144,8 @@ function rpUpdate(r, dt) {
   r.soak = s.s;
 }
 function showEmo(id, i) {
-  if (!EMOTES[i]) return;
-  MP.emo.set(id, { e: EMOTES[i], t: time });
+  if (!EMOTE_POOL[i]) return;
+  MP.emo.set(id, { e: EMOTE_POOL[i], t: time });
   SND.pop();
 }
 function cleanupPeer() {
@@ -190,6 +190,7 @@ function mpUI() {
     pill.innerHTML = `✈️ ${esc(MP.island.name)}'s island` + (MP.offline ? ' 💤' : '');
   } else pill.classList.add('hidden');
   hud();
+  chatUI();
   if (CL.on) {
     clTrack();
     if (CL.inbox && !VIS()) clApplyInbox();
@@ -436,7 +437,7 @@ function hostConn(conn) {
       rpPush(MP.players.get(v.id), v.last);
     } else if (d.t === 'emo') {
       const i = d.e | 0;
-      if (!EMOTES[i] || time - (v.emoT || -9) < 0.5) return;
+      if (!EMOTE_POOL[i] || time - (v.emoT || -9) < 0.5) return;
       v.emoT = time;
       showEmo(v.id, i);
       broadcast({ t: 'emo', id: v.id, e: i }, v.id);
@@ -463,7 +464,8 @@ function hostConn(conn) {
         conn.send({ t: 'ok', k: 'gift' });
       } catch (e) {}
       toast(`🎁 ${esc(v.name)} left you a present!<br>It will be on your beach tomorrow.`, 3500);
-    } else if (d.t === 'bye') dropVisitor(v.id, 'left');
+    } else if (d.t === 'chat') chatFromVisitor(v, d);
+    else if (d.t === 'bye') dropVisitor(v.id, 'left');
   });
   conn.on('close', () => {
     if (v) dropVisitor(v.id, 'left');
@@ -715,6 +717,9 @@ function visitorData(d) {
     case 'isl':
       MP.island = cleanIsland(d.isl);
       break;
+    case 'chat':
+      chatFromHost(d);
+      break;
     case 'ok':
       if (d.k === 'sign') toast(`📝 You signed ${hostName()}'s guestbook! 💕`, 2600);
       else if (d.k === 'gift') toast(`🎁 Your present will be on ${hostName()}'s beach tomorrow!`, 3200);
@@ -896,11 +901,17 @@ window.mpGift = c => {
   openDock();
 };
 
-// ----- emotes (no free-text chat) -----
-$('#emobar').innerHTML = EMOTES.map((e, i) => `<button onclick="doEmote(${i})">${e}</button>`).join('');
-window.doEmote = i => {
+// ----- emotes: each player picks which 6 emojis go in their quick bar -----
+function emoBarUI() {
+  $('#emobar').innerHTML =
+    S.emotes.map((i, slot) => `<button onclick="doEmote(${slot})">${EMOTE_POOL[i]}</button>`).join('') +
+    '<button class="edit" onclick="openEmotes()" aria-label="Change my emotes">✏️</button>';
+}
+emoBarUI();
+window.doEmote = slot => {
   $('#emobar').classList.add('hidden');
-  if (!EMOTES[i] || time - MP.emoT < 0.5) return;
+  const i = S.emotes[slot];
+  if (!EMOTE_POOL[i] || time - MP.emoT < 0.5) return;
   MP.emoT = time;
   showEmo('me', i);
   if (MP.role === 'visitor') {
@@ -909,9 +920,55 @@ window.doEmote = i => {
     } catch (e) {}
   } else if (MP.role === 'host') broadcast({ t: 'emo', id: 'host', e: i });
 };
+// the emote picker: tap a slot, then tap an emoji to put there (an emoji already in another slot swaps places)
+let emoSlot = 0,
+  emoBack = null;
+window.openEmotes = back => {
+  $('#emobar').classList.add('hidden');
+  closeTalk();
+  if (back !== undefined) {
+    emoBack = back;
+    emoSlot = 0;
+  }
+  modal(
+    `<h2>😊 My emotes</h2><p class="c" style="font-size:15px">Tap a spot, then pick an emoji to put there!</p>` +
+      `<div class="emoslots">${S.emotes.map((i, k) => `<button class="${k === emoSlot ? 'on' : ''}" onclick="emoPickSlot(${k})" aria-label="Spot ${k + 1}: ${EMOTE_POOL[i]}">${EMOTE_POOL[i]}</button>`).join('')}</div>` +
+      `<div class="emopool">${EMOTE_POOL.map((e, i) => `<button class="${S.emotes.includes(i) ? 'used' : ''}" onclick="emoPut(${i})" aria-label="${e}">${e}</button>`).join('')}</div>` +
+      `<div class="row"><button class="btn white" onclick="emoReset()">Start over</button><button class="btn" onclick="emoDone()">Done 💕</button></div>`
+  );
+};
+window.emoPickSlot = k => {
+  emoSlot = k;
+  openEmotes();
+};
+window.emoPut = i => {
+  if (!EMOTE_POOL[i]) return;
+  const other = S.emotes.indexOf(i);
+  if (other >= 0) S.emotes[other] = S.emotes[emoSlot];
+  S.emotes[emoSlot] = i;
+  emoSlot = (emoSlot + 1) % EMOTE_SLOTS;
+  SND.pop();
+  save();
+  emoBarUI();
+  openEmotes();
+};
+window.emoReset = () => {
+  S.emotes = newSave().emotes;
+  emoSlot = 0;
+  save();
+  emoBarUI();
+  openEmotes();
+};
+window.emoDone = () => {
+  const back = emoBack;
+  emoBack = null;
+  if (back === 'mirror') openMirror();
+  else closeModal();
+};
 $('#bEmo').onclick = () => {
   if (busy) return;
   closeTalk();
+  chatClose();
   $('#emobar').classList.toggle('hidden');
 };
 $('#bLeave').onclick = () => {

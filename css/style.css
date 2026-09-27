@@ -1143,3 +1143,149 @@ canvas.accc {
   width: 64px;
   height: 70px;
 }
+/* emote picker (😊 My emotes) */
+#emobar button.edit {
+  font-size: 22px;
+  background: #ffe6f1;
+}
+.emoslots {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+.emoslots button,
+.emopool button {
+  aspect-ratio: 1;
+  border: 3px solid #ffd0e6;
+  background: #fff;
+  border-radius: 14px;
+  font-size: 26px;
+  padding: 0;
+  font-family: inherit;
+}
+.emoslots button.on {
+  border-color: #ff5fa2;
+  background: #ffe6f1;
+  box-shadow: 0 0 0 3px #ffb3d9;
+}
+.emopool {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.emopool button.used {
+  background: #ffe6f1;
+  opacity: 0.55;
+}
+.emoslots button:active,
+.emopool button:active {
+  transform: scale(0.92);
+}
+/* best friends chat */
+body.chatting #bottom {
+  gap: 8px;
+}
+body.chatting #bottom button {
+  width: 62px;
+  height: 68px;
+  font-size: 26px;
+}
+#bChat {
+  position: relative;
+}
+#bChat .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #ff5f73;
+  color: #fff;
+  font-size: 12px;
+  line-height: 22px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+}
+#chat {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  max-width: 440px;
+  margin: 0 auto;
+  background: #fff7fb;
+  border: 3px solid #ff8cc6;
+  border-radius: 20px;
+  box-shadow: 0 4px 0 #e56aa8;
+  padding: 8px 10px 6px;
+  z-index: 24;
+  color: #7a2a55;
+}
+#chat .chathead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 900;
+  color: #d94b90;
+}
+#chatx {
+  border: none;
+  background: none;
+  font-size: 18px;
+  color: #d94b90;
+  padding: 2px 6px;
+  font-family: inherit;
+}
+#chatlog {
+  max-height: 28vh;
+  overflow-y: auto;
+  margin: 6px 0;
+  font-size: 15px;
+  line-height: 1.35;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#chatlog .cl {
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+#chatlog .cl.me b {
+  color: #d94b90;
+}
+#chatlog .dot {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+}
+#chatlog p.c {
+  margin: 8px 0;
+}
+#chat .chatrow {
+  display: flex;
+  gap: 6px;
+}
+#chatin {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px; /* 16px+ stops phones zooming in on focus */
+  font-weight: 700;
+  border: 3px solid #ffd0e6;
+  border-radius: 14px;
+  padding: 8px 10px;
+  color: #7a2a55;
+  font-family: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#chat .btn {
+  padding: 8px 14px;
+}
+#chatnote {
+  margin: 4px 0 0;
+  min-height: 1em;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}

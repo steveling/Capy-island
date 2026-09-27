@@ -9,6 +9,7 @@ function toWorld(sx, sy) {
 cv.addEventListener('pointerdown', ev => {
   if (busy) return;
   $('#emobar').classList.add('hidden');
+  chatClose();
   if (talking) {
     closeTalk();
   }

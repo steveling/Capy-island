@@ -5,7 +5,11 @@ const PORT = 4173;
 
 module.exports = defineConfig({
   testDir: 'tests',
-  fullyParallel: true,
+  // One browser at a time. With several in parallel (every page drawing its canvas nonstop, in software),
+  // about 1 test in 100-200 had a tab stop responding for good: no crash or page error, and even the
+  // test's own timeouts didn't fire until the page was closed. One worker ran ~500 tests without it,
+  // and isn't slower, because the tests are CPU-bound anyway.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',

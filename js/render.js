@@ -20,6 +20,52 @@ function nameTag(x, y, name, col) {
   ctx.fillStyle = '#c2427f';
   ctx.fillText(name, x + 5, y + 0.5);
 }
+// a chat speech bubble whose tail points down at (x, y); returns its height so an emote can sit above it
+function sayBubble(x, y, text, age) {
+  ctx.save();
+  ctx.font = 'bold 13px sans-serif';
+  const maxW = 150,
+    lines = [];
+  let line = '';
+  for (const w of text.split(' ')) {
+    const t = line ? line + ' ' + w : w;
+    if (ctx.measureText(t).width <= maxW || !line) line = t;
+    else {
+      lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length > 3) {
+    lines.length = 3;
+    lines[2] += '…';
+  }
+  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width))) + 20,
+    h = lines.length * 16 + 12,
+    top = y - 7 - h;
+  ctx.globalAlpha = age > SAY_T - 0.5 ? Math.max(0, (SAY_T - age) / 0.5) : 1;
+  ctx.fillStyle = 'rgba(150,40,90,.18)';
+  rr(x - w / 2 + 2, top + 2, w, h, 12);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  rr(x - w / 2, top, w, h, 12);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y - 8);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + 6, y - 8);
+  ctx.fill();
+  ctx.strokeStyle = '#ff8cc6';
+  ctx.lineWidth = 2;
+  rr(x - w / 2, top, w, h, 12);
+  ctx.stroke();
+  ctx.fillStyle = '#7a2a55';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  lines.forEach((l, i) => ctx.fillText(l, x, top + 14 + i * 16, maxW));
+  ctx.restore();
+  return h + 7;
+}
 function emoBubble(x, y, e, age) {
   const T = 2.6;
   if (age > T) return;
@@ -210,8 +256,11 @@ function render() {
   tags.forEach(t => {
     const ty = t.y + t.top - 8;
     nameTag(t.x, ty, t.name || 'Friend', t.col);
+    let by = ty - 14;
+    const say = MP.say.get(t.id);
+    if (say && time - say.t < SAY_T) by -= sayBubble(t.x, by, say.x, time - say.t) + 6;
     const em = MP.emo.get(t.id);
-    if (em) emoBubble(t.x, ty - 14, em.e, time - em.t);
+    if (em) emoBubble(t.x, by, em.e, time - em.t);
   });
   parts.forEach(p => {
     ctx.globalAlpha = Math.min(1, p.life);
