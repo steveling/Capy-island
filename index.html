@@ -7,6 +7,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Capy Island</title>
+<script>
+/* ================= CLOUD CONFIG (Supabase) =================
+   Leave BOTH empty => local-only + PeerJS visits, exactly like index.html.
+   Fill BOTH in (see capy-cloud/SETUP.md, or run capy-cloud/setup.sh) to turn on cloud save,
+   best friends and live visits over Supabase Realtime. The anon/publishable key is meant to be
+   public; the Row Level Security rules in capy-cloud/schema.sql are what protect the data. */
+const SUPABASE_URL = 'https://dgnmnwpkzungedangmjr.supabase.co';       // e.g. 'https://<project-ref>.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_aACqFwZdqJGkpGb0ElWKiw_aocVUjBk';  // Project Settings -> API Keys -> anon (legacy JWT) or publishable key
+</script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 html,body{margin:0;height:100%;overflow:hidden;background:#7fd3f0;font-family:"Nunito","Trebuchet MS",system-ui,sans-serif;touch-action:none}
@@ -158,7 +167,7 @@ const NEIGH=[
 ].map(n=>Object.assign(n,{x:n.hx,y:n.hy,tx:n.hx,ty:n.hy,wait:rnd(1,4),face:1}));
 
 // ---------- MULTIPLAYER STATE (logic further below) ----------
-const MP={role:null,peer:null,conn:null,code:null,hostState:null,vis:new Map(),players:new Map(),emo:new Map(),island:null,me:null,acc:0,lastRx:0,dirty:false,islT:0,islJ:'',signed:false,gave:false,savedBugs:null,dockOpen:false,dockView:'main',to:null,tries:0,emoT:0};
+const MP={role:null,peer:null,conn:null,code:null,hostState:null,vis:new Map(),players:new Map(),emo:new Map(),island:null,me:null,acc:0,lastRx:0,dirty:false,islT:0,islJ:'',signed:false,gave:false,savedBugs:null,dockOpen:false,dockView:'main',dockArg:null,to:null,tries:0,emoT:0,offline:false,friend:null,dropin:false,clLobby:null,clT:null,newFriend:null};
 const VIS=()=>MP.role==='visitor'||MP.role==='connecting';
 const ONV=()=>MP.role==='visitor'&&!!MP.island; // rendering the HOST's island
 
@@ -172,7 +181,16 @@ if(!S||!S.neigh)S=newSave();
  ['guestbook','giftsPending','fpresents','presents','stack','stock'].forEach(k=>{if(!Array.isArray(S[k]))S[k]=[]});
  if(!Array.isArray(S.room))S.room=d.room;if(!Array.isArray(S.spring))S.spring=d.spring;if(!Array.isArray(S.trees)||S.trees.length!==TREES.length)S.trees=d.trees;
  if(!CAPY[S.vcolor])S.vcolor='caramel';if(typeof S.x!=='number'||typeof S.y!=='number'){S.x=700;S.y=490}})();
-function save(){if(VIS()||restoring)return;S.x=P.x;S.y=P.y;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(MP.role==='host')MP.dirty=true}
+function save(){if(VIS()||restoring)return;S.x=P.x;S.y=P.y;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(MP.role==='host')MP.dirty=true;if(CL.on)clOnSave()}
+// cloud state (inert unless SUPABASE_URL + SUPABASE_ANON_KEY are set at the top of the file)
+const CMETA='capyIsland.cloud';
+const CL={on:typeof SUPABASE_URL==='string'&&typeof SUPABASE_ANON_KEY==='string'&&/^(https:\/\/|http:\/\/(localhost|127\.0\.0\.1)[:/])/.test(SUPABASE_URL)&&SUPABASE_ANON_KEY.length>20,
+ ready:false,initing:false,status:'off',err:'',sb:null,uid:null,token:null,meta:{},hash:'',friends:[],frT:0,lobby:null,lobbyOk:false,tracked:'',pipes:new Map(),
+ dropins:true,upT:null,firstDirty:0,uploading:null,again:false,lastUp:0,hbT:null,lobT:null,pulling:false,inbox:null,openSeq:0};
+if(CL.on){try{CL.meta=JSON.parse(localStorage.getItem(CMETA))||{}}catch(e){CL.meta={}}CL.dropins=CL.meta.dropins!==false;CL.status=CL.meta.moved?'moved':'off';
+ CL.friends=(Array.isArray(CL.meta.friends)?CL.meta.friends:[]).filter(f=>f&&/^[0-9a-f-]{36}$/.test(f.id)).map(f=>({id:f.id,name:String(f.name||'Friend').slice(0,12),color:CAPY[f.color]?f.color:'caramel',online:false}));
+ CL.hash=clHashS()}
+const netOK=()=>peerOK()||CL.ready;
 
 // ---------- STATE ----------
 const P={x:S.x,y:S.y,tx:S.x,ty:S.y,act:null,face:1,walk:0,moving:false,soak:false};
@@ -239,10 +257,10 @@ function update(dt){time+=dt;
  if(d>3){const s=Math.min(d,sp*dt);P.x+=dx/d*s;P.y+=dy/d*s;P.walk+=dt*12;P.moving=true;if(Math.abs(dx)>2)P.face=dx>0?1:-1}
  else{P.moving=false;if(a&&!['bug','talk'].includes(a.k)){P.act=null;doAct(a)}}
  const vis=ONV();
- NEIGH.forEach((n,i)=>{if(vis){const k=Math.min(1,dt*8);n.x+=(n.tx-n.x)*k;n.y+=(n.ty-n.y)*k;return}
-  if(talking===n){n.face=P.x>n.x?1:-1;return}const joins=P.soak&&S.neigh[n.id].f>=3;
+ NEIGH.forEach((n,i)=>{if(vis&&!MP.offline){const k=Math.min(1,dt*8);n.x+=(n.tx-n.x)*k;n.y+=(n.ty-n.y)*k;return}
+  if(talking===n){n.face=P.x>n.x?1:-1;return}const joins=!vis&&P.soak&&S.neigh[n.id].f>=3;
   if(joins){n.tx=SOAK[i].x;n.ty=SOAK[i].y}else if(n.soak){n.soak=false;n.tx=n.hx;n.ty=n.hy;n.wait=rnd(1,3)}
-  const ddx=n.tx-n.x,ddy=n.ty-n.y,dd=Math.hypot(ddx,ddy);if(dd>2){const s=Math.min(dd,(joins?70:38)*dt);n.x+=ddx/dd*s;n.y+=ddy/dd*s;if(Math.abs(ddx)>1)n.face=ddx>0?1:-1}else if(joins){n.soak=true;n.face=-1}else if((n.wait-=dt)<0){n.wait=rnd(2,6);n.tx=n.hx+rnd(-80,80);n.ty=n.hy+rnd(-50,50)}});
+  const ddx=n.tx-n.x,ddy=n.ty-n.y,dd=Math.hypot(ddx,ddy);if(dd>2){const s=Math.min(dd,(joins?70:n.hi?160:38)*dt);n.x+=ddx/dd*s;n.y+=ddy/dd*s;if(Math.abs(ddx)>1)n.face=ddx>0?1:-1}else if(joins){n.soak=true;n.face=-1}else if(n.hi){n.hi=false;n.face=P.x>n.x?1:-1}else if((n.wait-=dt)<0){n.wait=rnd(2,6);n.tx=n.hx+rnd(-80,80);n.ty=n.hy+rnd(-50,50)}});
  if(!vis&&!VIS()&&P.soak&&S.soakDay!==S.dayKey){const want=NEIGH.filter(n=>S.neigh[n.id].f>=3),inn=want.filter(n=>n.soak);if(want.length&&inn.length===want.length){S.soakDay=S.dayKey;inn.forEach(n=>friend(n,1));SND.yay();openSpring(`Ahhh... ♨️ ${inn.map(n=>n.n).join(' and ')} came to soak with you! 💕 What a happy day!`);save()}}
  bugs.forEach(b=>{const it=ITEMS[b.t];b.ph+=dt;if((b.ch-=dt)<0){b.ch=rnd(1,3);const sp=it.fly?40:12,ang=rnd(0,6.28);b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp}
   if(b.flee>0){b.flee-=dt;const ex=b.x-P.x,ey=b.y-P.y,el=Math.hypot(ex,ey)||1;b.vx=ex/el*110;b.vy=ey/el*110}
@@ -583,29 +601,29 @@ function cleanIsland(i){i=i||{};const furn=x=>ITEMS[x]&&ITEMS[x].k==='furn'?x:nu
  trees:TREES.map((_,k)=>Math.round(num(Array.isArray(i.trees)?i.trees[k]:3,3,0,3))),spring:Array.from({length:6},(_,k)=>furn(Array.isArray(i.spring)?i.spring[k]:null)),yuzu:Math.round(num(i.yuzu,0,0,50)),
  presents:(Array.isArray(i.presents)?i.presents:[]).filter(a=>typeof a==='number'&&isFinite(a)).slice(0,6),fp:(Array.isArray(i.fp)?i.fp:[]).filter(f=>f&&typeof f.a==='number'&&isFinite(f.a)).slice(0,12).map(f=>({a:f.a,c:WRAPS[f.c]?f.c:'pink'}))}}
 function snapshot(){return{name:S.name,day:S.day,trees:S.trees.slice(),spring:S.spring.slice(),yuzu:S.yuzu,presents:S.presents.slice(0,6),fp:S.fpresents.slice(0,12).map(f=>({a:f.a,c:f.c}))}}
-function addPlayer(id,name,color,stack,x,y){const r={id,name,color,stack,buf:[],x,y,face:1,walk:0,moving:false,soak:false};MP.players.set(id,r);return r}
+function addPlayer(id,name,color,stack,x,y){const r={id,name,color,stack,buf:[],x,y,face:1,walk:0,moving:false,soak:false,slow:!!(MP.conn&&MP.conn.cloud)};MP.players.set(id,r);return r}
 function rpPush(r,a){if(!r)return;r.buf.push({t:performance.now(),x:a[1],y:a[2],f:a[3]<0?-1:1,m:!!a[4],s:!!a[5]});if(r.buf.length>24)r.buf.shift()}
-function rpUpdate(r,dt){const b=r.buf;if(!b.length)return;const rt=performance.now()-130;let s=b[b.length-1],x=s.x,y=s.y;
+function rpUpdate(r,dt){const b=r.buf;if(!b.length)return;const rt=performance.now()-(r.slow?260:130);let s=b[b.length-1],x=s.x,y=s.y;
  if(b[0].t>=rt){x=b[0].x;y=b[0].y;s=b[0]}else for(let i=b.length-1;i>0;i--){if(b[i-1].t<=rt){const A=b[i-1],B=b[i],k=Math.min(1,(rt-A.t)/((B.t-A.t)||1));x=A.x+(B.x-A.x)*k;y=A.y+(B.y-A.y)*k;s=k<.5?A:B;break}}
  r.moving=s.m||Math.hypot(x-r.x,y-r.y)>.4;if(r.moving)r.walk+=dt*12;r.x=x;r.y=y;r.face=s.f;r.soak=s.s}
 function showEmo(id,i){if(!EMOTES[i])return;MP.emo.set(id,{e:EMOTES[i],t:time});SND.pop()}
-function cleanupPeer(){clearTimeout(MP.to);const c=MP.conn,p=MP.peer;MP.conn=null;MP.peer=null;try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}}
+function cleanupPeer(){clearTimeout(MP.to);clearTimeout(MP.clT);if(MP.clLobby){const l=MP.clLobby;MP.clLobby=null;try{CL.sb.removeChannel(l)}catch(e){}}const c=MP.conn,p=MP.peer;MP.conn=null;MP.peer=null;try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}}
 function mpUI(){const r=MP.role,open=r==='host'&&MP.hostState==='open';document.body.classList.toggle('mp',r==='host'||r==='visitor');
  $('#bHome').classList.toggle('hidden',r==='visitor');$('#bLeave').classList.toggle('hidden',r!=='visitor');$('#bEmo').classList.toggle('hidden',!(r==='visitor'||open));if(!(r==='visitor'||open))$('#emobar').classList.add('hidden');
- const pill=$('#mppill');if(r==='host'){pill.classList.remove('hidden');pill.innerHTML=open?`🛬 Open · <b>${MP.code}</b> · 👥 ${MP.vis.size}`:'🛬 Opening...'}else if(r==='visitor'&&MP.island){pill.classList.remove('hidden');pill.innerHTML=`✈️ ${esc(MP.island.name)}'s island`}else pill.classList.add('hidden');hud()}
-function refreshDock(){if(MP.dockOpen&&MP.dockView!=='visit')openDock(MP.dockView)}
+ const pill=$('#mppill');if(r==='host'){pill.classList.remove('hidden');pill.innerHTML=open?(MP.code?`🛬 Open · <b>${MP.code}</b> · 👥 ${MP.vis.size}`:`🛬 Best friends visiting · 👥 ${MP.vis.size}`):'🛬 Opening...'}else if(r==='visitor'&&MP.island){pill.classList.remove('hidden');pill.innerHTML=`✈️ ${esc(MP.island.name)}'s island`+(MP.offline?' 💤':'')}else pill.classList.add('hidden');hud();if(CL.on){clTrack();if(CL.inbox&&!VIS())clApplyInbox()}}
+function refreshDock(){if(MP.dockOpen&&MP.dockView!=='visit')openDock(MP.dockView,MP.dockArg)}
 
 // net tick ~12x/sec
 function mpUpdate(dt){if(MP.role!=='visitor'&&MP.role!=='host')return;MP.players.forEach(r=>rpUpdate(r,dt));
  MP.acc+=dt;if(MP.acc<1/12)return;MP.acc=0;const now=performance.now(),me=[Math.round(P.x),Math.round(P.y),P.face,P.moving?1:0,P.soak?1:0];
- if(MP.role==='visitor'){if(MP.conn&&MP.conn.open)try{MP.conn.send({t:'p',x:me[0],y:me[1],f:me[2],m:me[3],s:me[4]})}catch(e){}if(now-MP.lastRx>12000)returnHome('lost');return}
+ if(MP.role==='visitor'){if(MP.offline)return;if(MP.conn&&MP.conn.open)try{MP.conn.send({t:'p',x:me[0],y:me[1],f:me[2],m:me[3],s:me[4]})}catch(e){}if(now-MP.lastRx>12000)returnHome('lost');return}
  if(!MP.vis.size)return;const all=[['host',...me]];MP.vis.forEach(v=>{if(v.last)all.push(v.last)});const nb=NEIGH.map(n=>[Math.round(n.x),Math.round(n.y),n.face,n.soak?1:0]);
  let isl=null;if(MP.dirty&&now-MP.islT>800){MP.dirty=false;MP.islT=now;const s=snapshot(),j=JSON.stringify(s);if(j!==MP.islJ){MP.islJ=j;isl=s}}
  MP.vis.forEach(v=>{if(now-v.lastRx>15000){dropVisitor(v.id,'lost');return}if(!v.conn.open)return;try{v.conn.send({t:'ps',l:all.filter(a=>a[0]!==v.id),nb});if(isl)v.conn.send({t:'isl',isl})}catch(e){}})}
 
 // ----- HOST -----
 function broadcast(m,except){MP.vis.forEach(v=>{if(v.id!==except&&v.conn.open)try{v.conn.send(m)}catch(e){}})}
-window.openIsland=()=>{if(!peerOK()){dockMsg(OFFLINE_MSG);return}if(MP.role)return;MP.role='host';MP.hostState='opening';MP.vis.clear();MP.players.clear();MP.emo.clear();MP.tries=0;MP.islJ='';hostStart();mpUI();openDock()};
+window.openIsland=()=>{if(!netOK()){dockMsg(OFFLINE_MSG);return}const up=MP.role==='host'&&MP.dropin;if(MP.role&&!up)return;if(!up){MP.role='host';MP.vis.clear();MP.players.clear();MP.emo.clear();MP.islJ=''}MP.hostState='opening';MP.dropin=false;MP.tries=0;if(CL.ready)clHostOpen();else hostStart();mpUI();openDock()};
 function hostStart(){MP.code=genCode();let p;try{p=new Peer(PEER_PREFIX+MP.code,PEER_OPTS)}catch(e){hostFail();return}MP.peer=p;
  MP.to=setTimeout(()=>{if(MP.peer===p&&MP.hostState==='opening')hostFail()},20000);
  p.on('open',()=>{if(MP.peer!==p)return;clearTimeout(MP.to);MP.hostState='open';mpUI();refreshDock();SND.yay();if(!MP.dockOpen)toast(`Your island is open! ✈️<br>Code: <b>${MP.code}</b>`,3500)});
@@ -617,7 +635,7 @@ function hostConn(conn){let v=null;
  conn.on('data',d=>{if(!d||typeof d!=='object'||MP.role!=='host')return;
   if(d.t==='hello'&&!v){if(MP.vis.size>=MAX_VIS){try{conn.send({t:'full'})}catch(e){}setTimeout(()=>{try{conn.close()}catch(e){}},600);return}
    v={id:String(conn.peer),conn,name:cleanName(d.name),color:cleanColor(d.color),stack:cleanStack(d.stack),lastRx:performance.now(),signed:false,gave:false,last:null};
-   v.last=[v.id,DOCK.x,DOCK.y,1,0,0];MP.vis.set(v.id,v);const r=addPlayer(v.id,v.name,v.color,v.stack,DOCK.x,DOCK.y);rpPush(r,v.last);
+   v.last=[v.id,DOCK.x,DOCK.y,1,0,0];MP.vis.set(v.id,v);const r=addPlayer(v.id,v.name,v.color,v.stack,DOCK.x,DOCK.y);r.slow=!!conn.cloud;rpPush(r,v.last);
    const pl=[{id:'host',name:S.name,color:'pink',stack:S.stack.slice(0,15),x:Math.round(P.x),y:Math.round(P.y)}];MP.vis.forEach(o=>{if(o!==v)pl.push({id:o.id,name:o.name,color:o.color,stack:o.stack,x:o.last[1],y:o.last[2]})});
    try{conn.send({t:'snap',me:v.id,isl:snapshot(),pl,nb:NEIGH.map(n=>[Math.round(n.x),Math.round(n.y),n.face,n.soak?1:0])})}catch(e){}
    broadcast({t:'join',id:v.id,name:v.name,color:v.color,stack:v.stack,x:DOCK.x,y:DOCK.y},v.id);
@@ -631,20 +649,22 @@ function hostConn(conn){let v=null;
  conn.on('close',()=>{if(v)dropVisitor(v.id,'left')});conn.on('error',()=>{if(v)dropVisitor(v.id,'left')})}
 function dropVisitor(id,why){const v=MP.vis.get(id);if(!v)return;MP.vis.delete(id);MP.players.delete(id);MP.emo.delete(id);
  if(why==='home'){try{v.conn.send({t:'home'})}catch(e){}setTimeout(()=>{try{v.conn.close()}catch(e){}},800)}else try{v.conn.close()}catch(e){}
- broadcast({t:'left',id});toast(why==='home'?`👋 ${esc(v.name)} is flying home.`:`🛫 ${esc(v.name)} flew home. Bye bye!`,2500);mpUI();refreshDock()}
+ broadcast({t:'left',id});toast(why==='home'?`👋 ${esc(v.name)} is flying home.`:`🛫 ${esc(v.name)} flew home. Bye bye!`,2500);clDropinEnd();mpUI();refreshDock()}
 window.sendHome=id=>dropVisitor(id,'home');
 window.closeIsland=()=>{if(MP.role!=='host')return;broadcast({t:'closed'});const p=MP.peer,vs=[...MP.vis.values()];MP.peer=null;MP.conn=null;clearTimeout(MP.to);
  setTimeout(()=>{vs.forEach(v=>{try{v.conn.close()}catch(e){}});try{p&&p.destroy()}catch(e){}},500);// destroying the Peer frees the code: it stops working
- MP.vis.clear();MP.players.clear();MP.emo.clear();MP.role=null;MP.hostState=null;MP.code=null;mpUI();toast('Your island is closed. 🔒');refreshDock()};
+ const wasDrop=MP.dropin,hadCode=MP.code;MP.vis.clear();MP.players.clear();MP.emo.clear();MP.role=null;MP.hostState=null;MP.code=null;MP.dropin=false;if(CL.on)clHostClosed(hadCode);mpUI();toast(wasDrop?'Everyone flew home. 👋':'Your island is closed. 🔒');refreshDock()};
 window.shareCode=()=>{const code=MP.code;if(!code)return;const text=`Come visit my Capy Island! 🏝️ My island code is ${code}`,url=location.origin+location.pathname+'?visit='+code;
  if(navigator.share)navigator.share({title:'Capy Island',text,url}).catch(()=>{});else copyCode()};
 window.copyCode=()=>{const t=MP.code;if(!t)return;const ok=()=>toast('Copied! 📋 '+t),no=()=>toast('Your island code is <b>'+t+'</b>',3500);try{navigator.clipboard.writeText(t).then(ok,no)}catch(e){no()}};
 
 // ----- VISITOR -----
 window.visitFriend=code=>{code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length!==5||[...code].some(ch=>!CODE_ABC.includes(ch))){toast('Island codes have 5 letters and numbers. 🏝️');return}
- if(!peerOK()){dockMsg(OFFLINE_MSG);return}if(MP.role){toast(MP.role==='host'?'Close your island first! 🔒':'Already flying! ✈️');return}
- save();MP.role='connecting';MP.code=code;
+ if(!netOK()){dockMsg(OFFLINE_MSG);return}if(MP.role){toast(MP.role==='host'?'Close your island first! 🔒':'Already flying! ✈️');return}
+ save();MP.role='connecting';MP.code=code;MP.newFriend=null;
  modal(`<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Flying to island <b>${code}</b>...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`);
+ if(CL.ready){clTrack();clVisitByCode(code)}else peerVisit(code)};
+function peerVisit(code){
  let p;try{p=new Peer(PEER_OPTS)}catch(e){visitFail('net');return}MP.peer=p;MP.to=setTimeout(()=>visitFail(MP.conn?'nolink':'net'),20000);
  p.on('open',()=>{if(MP.peer!==p||MP.role!=='connecting')return;const c=p.connect(PEER_PREFIX+code,{reliable:true,serialization:'json'});MP.conn=c;
   c.on('open',()=>{try{c.send({t:'hello',v:1,name:S.name||'Friend',color:S.vcolor,stack:S.stack.slice(0,15)})}catch(e){}});
@@ -653,9 +673,9 @@ window.visitFriend=code=>{code=String(code||'').toUpperCase().replace(/[^A-Z0-9]
   c.on('close',()=>{if(MP.conn!==c)return;if(MP.role==='visitor')returnHome('lost');else if(MP.role==='connecting')visitFail('notfound')});c.on('error',()=>{})});
  p.on('error',e=>{if(MP.peer!==p)return;const t=e&&e.type;if(MP.role==='connecting')visitFail(t==='peer-unavailable'?'notfound':'net')});
  p.on('disconnected',()=>{})};// losing the broker after connecting is fine; the data channel is direct
-window.cancelVisit=()=>{if(MP.role!=='connecting')return;cleanupPeer();MP.role=null;closeModal()};
+window.cancelVisit=()=>{if(MP.role!=='connecting')return;cleanupPeer();MP.role=null;closeModal();if(CL.on)clTrack()};
 function visitFail(k){if(MP.role!=='connecting')return;cleanupPeer();MP.role=null;mpUI();
- const m={notfound:"Hmm, we couldn't find that island. 🏝️<br>Check the code and try again!",full:"That island is full right now (3 visitors). 🛬<br>Try again a little later!",net:"The seaplane can't fly right now. 📡<br>Check the internet and try again!",nolink:"We found the island, but the seaplane couldn't land. 📡<br>Try again, or ask a grown-up to put both phones on the same Wi-Fi."}[k]||'Oops!';
+ const m={notfound:"Hmm, we couldn't find that island. 🏝️<br>Check the code and try again!",full:"That island is full right now (3 visitors). 🛬<br>Try again a little later!",net:"The seaplane can't fly right now. 📡<br>Check the internet and try again!",nolink:"We found the island, but the seaplane couldn't land. 📡<br>Try again, or ask a grown-up to put both phones on the same Wi-Fi.",notfriend:"Hmm, you two aren't best friends anymore. 🏝️<br>Ask your friend for their island code!",slow:"Too many tries! 🐢<br>Wait a little and try again.",own:"That's your own island code! 🏝️<br>Give it to a friend so they can visit you.",many:"Wow, that's a lot of best friends! 💕<br>Remove one before adding a new one."}[k]||'Oops!';
  modal(`<h2>✈️ Oh no!</h2><p class="c" style="font-size:18px">${m}</p><div class="row"><button class="btn" onclick="openDock('visit')">Try again</button><button class="btn white" onclick="closeModal()">OK</button></div>`)}
 function visitorData(d){if(!d||typeof d!=='object')return;MP.lastRx=performance.now();
  if(MP.role==='connecting'){if(d.t==='snap')enterVisit(d);else if(d.t==='full')visitFail('full');return}
@@ -675,16 +695,16 @@ function enterVisit(d){clearTimeout(MP.to);MP.role='visitor';MP.me=String(d.me||
  MP.savedBugs=bugs;bugs=[];parts=[];clearTimeout(F&&F.t);F=null;$('#fish').classList.add('hidden');$('#house').classList.add('hidden');closeModal();closeTalk();busy=false;
  P.soak=false;P.act=null;P.x=P.tx=DOCK.x+rnd(-24,24);P.y=P.ty=DOCK.y-6;P.face=1;cam.x=P.x;cam.y=P.y-40;
  applyNb(d.nb);NEIGH.forEach(n=>{n.x=n.tx;n.y=n.ty});
- mpUI();SND.yay();toast(`✈️ Welcome to ${hostName()}'s island!`,3000)}
+ if(MP.clLobby){const l=MP.clLobby;MP.clLobby=null;try{CL.sb.removeChannel(l)}catch(e){}}mpUI();SND.yay();toast(`✈️ Welcome to ${hostName()}'s island!`,3000);if(MP.newFriend){const nf=MP.newFriend;MP.newFriend=null;setTimeout(()=>{if(MP.role==='visitor')toast(`💕 ${esc(nf)} is now one of your best friends!`,3000)},3200)}}
 window.leaveIsland=()=>{if(MP.role!=='visitor')return;try{MP.conn&&MP.conn.open&&MP.conn.send({t:'bye'})}catch(e){}const c=MP.conn,p=MP.peer;MP.conn=null;MP.peer=null;setTimeout(()=>{try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}},300);returnHome('leave')};
-function returnHome(reason){if(MP.role!=='visitor')return;cleanupPeer();MP.role=null;MP.island=null;MP.players.clear();MP.emo.clear();MP.me=null;
+function returnHome(reason){if(MP.role!=='visitor')return;cleanupPeer();MP.role=null;MP.island=null;MP.offline=false;MP.friend=null;NEIGH.forEach(n=>n.hi=false);MP.players.clear();MP.emo.clear();MP.me=null;
  closeTalk();closeModal();$('#emobar').classList.add('hidden');P.soak=false;P.act=null;P.x=P.tx=S.x;P.y=P.ty=S.y;cam.x=P.x;cam.y=P.y-40;bugs=MP.savedBugs||[];MP.savedBugs=null;
  NEIGH.forEach(n=>{n.x=n.tx=n.hx;n.y=n.ty=n.hy;n.soak=false;n.wait=rnd(1,3)});mpUI();
  const msg={home:'Time to fly home! ✈️<br>Thanks for visiting!',closed:'Your friend closed their island.<br>Time to fly home! ✈️',lost:'Oops! The seaplane lost its way. 📡<br>Flying home...'}[reason];
  if(msg)modal(`<h2>🏝️ Back home</h2><div style="text-align:center;font-size:56px">🛩️</div><p class="c" style="font-size:18px">${msg}</p><div class="row"><button class="btn" onclick="closeModal()">OK</button></div>`);else toast(`Welcome home, ${esc(S.name)}! 🏝️`);
  if(S.name&&newDay()){hud();setTimeout(()=>toast(`Good morning, ${esc(S.name)}! 🌞 A new day on Capy Island!`,3500),msg?100:2400)}}
-window.mpSign=i=>{if(MP.role!=='visitor'||MP.signed||!STAMPS[i])return;MP.signed=true;try{MP.conn.send({t:'sign',s:i})}catch(e){}SND.yay();openDock()};
-window.mpGift=c=>{if(MP.role!=='visitor'||MP.gave||!WRAPS[c])return;MP.gave=true;try{MP.conn.send({t:'gift',c})}catch(e){}SND.yay();burst(P.x,P.y-60,'🎁',5);openDock()};
+window.mpSign=i=>{if(MP.role!=='visitor'||MP.signed||!STAMPS[i])return;MP.signed=true;if(MP.offline)clOfflineSign(i);else try{MP.conn.send({t:'sign',s:i})}catch(e){}SND.yay();openDock()};
+window.mpGift=c=>{if(MP.role!=='visitor'||MP.gave||!WRAPS[c])return;MP.gave=true;if(MP.offline)clOfflineGift(c);else try{MP.conn.send({t:'gift',c})}catch(e){}SND.yay();burst(P.x,P.y-60,'🎁',5);openDock()};
 
 // ----- emotes (no free-text chat) -----
 $('#emobar').innerHTML=EMOTES.map((e,i)=>`<button onclick="doEmote(${i})">${e}</button>`).join('');
@@ -697,21 +717,27 @@ $('#mppill').onclick=()=>{if(!busy)openDock()};
 // ----- the Capy Air menu -----
 function dockMsg(m){modal(`<h2>✈️ Capy Air</h2><p class="c" style="font-size:18px">${m}</p><div class="row"><button class="btn" onclick="closeModal()">OK</button></div>`)}
 window.setVColor=c=>{if(!CAPY[c]||VIS())return;S.vcolor=c;save();SND.pop();openDock()};
-window.openDock=(view,prefill)=>{view=view||'main';let h='<h2>✈️ Capy Air</h2>';const hn=hostName();
+window.openDock=(view,prefill)=>{view=view||'main';let h='<h2>✈️ Capy Air</h2>';const hn=hostName();MP.dockArg=prefill===undefined?null:prefill;
  if(view==='guestbook'){const gb=S.guestbook;h+=`<h3>📝 My Guestbook</h3>`+(gb.length?'<div class="list">'+gb.slice().reverse().map(g=>`<div class="li"><span class="e">${esc(g.s)}</span><span class="t"><span class="dot" style="background:${(CAPY[g.c]||CAPY.caramel).b}"></span>${esc(g.n)}<small>visited on ${esc(g.d)}</small></span></div>`).join('')+'</div>':'<p class="note">No visitors yet!<br>Open your island and share your code with a friend. ✈️</p>')+`<div class="row"><button class="btn white" onclick="openDock()">Back</button><button class="btn" onclick="closeModal()">Close</button></div>`}
+ else if(view==='friends'&&CL.on&&!MP.role){const fr=CL.friends;
+  h+=`<h3>💕 Best friends</h3>`+(CL.ready?'':`<p class="note">${CL.status==='loading'?'☁️ Connecting...':OFFLINE_MSG}</p>`)+(fr.length?'<div class="list">'+fr.map(f=>`<div class="li"><span class="t"><span class="dot" style="background:${CAPY[f.color].b}"></span>${esc(f.name)}<small>${f.online?'🟢 Playing now!':'💤 Not playing. Visit their island!'}</small></span><button class="btn" ${CL.ready?'':'disabled'} onclick="flyToFriend('${f.id}')">Fly ✈️</button><button class="btn white" aria-label="Remove friend" onclick="openDock('unfriend','${f.id}')">✖</button></div>`).join('')+'</div>':'<p class="note">No best friends yet!<br>When you visit a friend with their island code, you become best friends. 💕</p>')+
+   `<div class="row"><button class="btn white" onclick="openDock()">Back</button><button class="btn" onclick="closeModal()">Close</button></div>`;
+  if(CL.ready&&Date.now()-CL.frT>5000){const before=JSON.stringify(CL.friends);CL.frT=Date.now();clFriendsRefresh().then(()=>{if(MP.dockOpen&&MP.dockView==='friends'&&JSON.stringify(CL.friends)!==before)openDock('friends')})}}
+ else if(view==='unfriend'&&CL.on&&!MP.role){const f=CL.friends.find(x=>x.id===prefill);if(!f)return openDock('friends');
+  h+=`<p class="c" style="font-size:18px">Remove <b>${esc(f.name)}</b> from your best friends?</p><p class="c" style="font-size:14px">You won't be able to fly to each other's islands until you visit with an island code again.</p><div class="row"><button class="btn" onclick="clUnfriend('${f.id}')">Yes, remove</button><button class="btn white" onclick="openDock('friends')">No, keep</button></div>`}
  else if(MP.role==='visitor'){
   if(view==='stamp')h+=`<p class="c">Pick a stamp for ${hn}'s guestbook!</p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${STAMPS.map((s,i)=>`<div class="cell" style="font-size:44px" onclick="mpSign(${i})">${s}</div>`).join('')}</div><div class="row"><button class="btn white" onclick="openDock()">Back</button></div>`;
   else if(view==='wrap')h+=`<p class="c">Pick a wrapping color! 🎀<br><small>A surprise will be inside. It will be on ${hn}'s beach tomorrow.</small></p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${Object.keys(WRAPS).map(k=>`<div class="cell" style="background:${WRAPS[k]};border-color:#fff;font-size:34px" onclick="mpGift('${k}')">🎀</div>`).join('')}</div><div class="row"><button class="btn white" onclick="openDock()">Back</button></div>`;
-  else h+=`<p class="c">You're visiting <b>${hn}</b>'s island! 🏝️</p><button class="btn big" ${MP.signed?'disabled':''} onclick="openDock('stamp')">${MP.signed?'Guestbook signed ✓':'Sign the guestbook 📝'}</button><button class="btn big" ${MP.gave?'disabled':''} onclick="openDock('wrap')">${MP.gave?'Present left ✓':'Leave a present 🎁'}</button><button class="btn big white" onclick="leaveIsland()">Fly home ✈️</button><div class="row"><button class="btn white" onclick="closeModal()">Keep playing</button></div>`}
+  else h+=`<p class="c">You're visiting <b>${hn}</b>'s island! 🏝️</p>${MP.offline?`<p class="note" style="margin-top:0">💤 ${hn} isn't playing right now. Your stamp and present will be waiting for them!</p>`:''}<button class="btn big" ${MP.signed?'disabled':''} onclick="openDock('stamp')">${MP.signed?'Guestbook signed ✓':'Sign the guestbook 📝'}</button><button class="btn big" ${MP.gave?'disabled':''} onclick="openDock('wrap')">${MP.gave?'Present left ✓':'Leave a present 🎁'}</button><button class="btn big white" onclick="leaveIsland()">Fly home ✈️</button><div class="row"><button class="btn white" onclick="closeModal()">Keep playing</button></div>`}
  else if(view==='visit'){if(MP.role==='host'){view='main';return openDock()}
-  h+=`<p class="c">Type your friend's island code:</p><input class="code" id="vcode" maxlength="5" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="?????" value="${esc(prefill||'')}"><p class="c" style="font-size:14px">You'll fly there as <span class="dot" style="background:${CAPY[S.vcolor].b}"></span>${esc(S.name)}</p>`+(peerOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+`<div class="row"><button class="btn" id="vgo" style="font-size:22px" onclick="visitFriend(document.getElementById('vcode').value)" ${peerOK()?'':'disabled'}>Fly! ✈️</button><button class="btn white" onclick="openDock()">Back</button></div>`}
+  h+=`<p class="c">Type your friend's island code:</p><input class="code" id="vcode" maxlength="5" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="?????" value="${esc(prefill||'')}"><p class="c" style="font-size:14px">You'll fly there as <span class="dot" style="background:${CAPY[S.vcolor].b}"></span>${esc(S.name)}</p>`+(netOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+`<div class="row"><button class="btn" id="vgo" style="font-size:22px" onclick="visitFriend(document.getElementById('vcode').value)" ${netOK()?'':'disabled'}>Fly! ✈️</button><button class="btn white" onclick="openDock()">Back</button></div>`}
  else if(MP.role==='host'){
   if(MP.hostState!=='open')h+=`<p class="c" style="font-size:18px">Opening your island...</p><div style="text-align:center;font-size:56px"><div class="fly">🛬</div></div><div class="row"><button class="btn white" onclick="closeIsland()">Cancel</button></div>`;
-  else{h+=`<p class="c">Your island is open! 🏝️ Tell your friend this code:</p><div class="code">${MP.code}</div><div class="row"><button class="btn" onclick="copyCode()">Copy 📋</button>${navigator.share?'<button class="btn" onclick="shareCode()">Share 💌</button>':''}</div>
+  else{h+=(MP.code?`<p class="c">Your island is open! 🏝️ Tell your friend this code:</p><div class="code">${MP.code}</div><div class="row"><button class="btn" onclick="copyCode()">Copy 📋</button>${navigator.share?'<button class="btn" onclick="shareCode()">Share 💌</button>':''}</div>`:`<p class="c">Your best friends flew in to visit! 🏝️</p><button class="btn big" onclick="openIsland()">Get an island code 🔑</button>`)+`
    <h3>Visitors (${MP.vis.size}/${MAX_VIS})</h3>`+(MP.vis.size?'<div class="list">'+[...MP.vis.values()].map(v=>`<div class="li"><span class="t"><span class="dot" style="background:${CAPY[v.color].b}"></span>${esc(v.name)}</span><button class="btn white" onclick="sendHome('${esc(v.id)}')">Send home 🏠</button></div>`).join('')+'</div>':'<p class="note" style="margin-top:0">Waiting for friends to fly in... ✈️</p>')+
-   `<div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeIsland()">Close my island 🔒</button></div><div class="row"><button class="btn" onclick="closeModal()">Keep playing</button></div>`}}
- else{h+=`<p class="c">Visit a friend's island, or invite friends to yours!</p>`+(peerOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+
-  `<button class="btn big" ${peerOK()?'':'disabled'} onclick="openIsland()">Open my island 🏝️</button><button class="btn big" ${peerOK()?'':'disabled'} onclick="openDock('visit')">Visit a friend ✈️</button>
+   `<div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeIsland()">${MP.code?'Close my island 🔒':'Send everyone home 🏠'}</button></div><div class="row"><button class="btn" onclick="closeModal()">Keep playing</button></div>`}}
+ else{h+=`<p class="c">Visit a friend's island, or invite friends to yours!</p>`+(netOK()?'':`<p class="note">${OFFLINE_MSG}</p>`)+
+  `<button class="btn big" ${netOK()?'':'disabled'} onclick="openIsland()">Open my island 🏝️</button><button class="btn big" ${netOK()?'':'disabled'} onclick="openDock('visit')">Visit a friend ✈️</button>${CL.on?`<button class="btn big" onclick="openDock('friends')">💕 Best friends${CL.friends.length?' ('+CL.friends.length+')':''}</button>`:''}
   <h3>My visiting color</h3><div class="sws">${Object.keys(CAPY).filter(k=>k!=='pink').concat('pink').map(k=>`<button class="sw ${S.vcolor===k?'on':''}" title="${CAPY[k].n}" style="background:${CAPY[k].b}" onclick="setVColor('${k}')"></button>`).join('')}</div><p class="c" style="font-size:13px;margin:6px 0 0">When you visit, you'll be a ${CAPY[S.vcolor].n.toLowerCase()} capybara!</p>
   <div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeModal()">Bye! 👋</button></div>`}
  modal(h);MP.dockOpen=true;MP.dockView=view;
@@ -730,8 +756,8 @@ function grownups(msg){modal(`<h2>⚙️ Grown-ups</h2>${msg?`<p class="note">${
  <button class="btn big" onclick="saveBackup()">💾 Save backup file</button><button class="btn big white" onclick="copyBackup()">📋 Copy backup code</button><div id="bkcode"></div>
  <h3>Restore a backup</h3><div class="row" style="margin-top:0"><label class="btn white">📂 Choose file<input type="file" id="bkfile" accept=".json,application/json,text/plain" style="display:none"></label></div>
  <p class="c" style="font-size:14px;margin:10px 0 4px">…or paste a backup code:</p><textarea class="bk" id="bkpaste" placeholder="Paste backup code here"></textarea><div class="row"><button class="btn white" onclick="restoreText(document.getElementById('bkpaste').value)">Restore from code</button></div>
- <p class="c" style="font-size:12px;color:#b0487c">Capy Island v3 · save key ${KEY}</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`);
- $('#bkfile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(f.size>2e6){grownups('😕 That file is too big to be a Capy Island backup.');return}const r=new FileReader();r.onload=()=>restoreText(String(r.result));r.onerror=()=>grownups("😕 Couldn't read that file.");r.readAsText(f)}}
+ ${CL.on?clPanelHtml():''}<p class="c" style="font-size:12px;color:#b0487c">Capy Island v3 · save key ${KEY}</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`);
+ $('#bkfile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(f.size>2e6){grownups('😕 That file is too big to be a Capy Island backup.');return}const r=new FileReader();r.onload=()=>restoreText(String(r.result));r.onerror=()=>grownups("😕 Couldn't read that file.");r.readAsText(f)};if(CL.on)clPanelWire()}
 window.saveBackup=async()=>{const json=JSON.stringify(backupObj(),null,1),name=backupName();
  try{const file=new File([json],name,{type:'application/json'});if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Capy Island backup',text:`Capy Island backup (${new Date().toLocaleDateString()})`});toast('Backup shared! 💾');return}}catch(e){if(e&&e.name==='AbortError')return}
  const url=URL.createObjectURL(new Blob([json],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast('Backup downloaded! 💾<br>'+name,3500)};
@@ -748,15 +774,219 @@ window.restoreText=txt=>{let b;try{b=parseBackup(txt)}catch(e){grownups("😕 Th
  if(MP.role){grownups('Please finish visiting / close your island first. ✈️');return}
  window._pendingRestore=b;const when=b.date?b.date.toLocaleString():'an unknown date';
  modal(`<h2>⚙️ Restore backup?</h2><p class="c" style="font-size:17px">This will replace the current island with the backup from <b>${esc(when)}</b>${b.save.name?` (${esc(b.save.name)}'s island, 🪙 ${b.save.coins|0})`:''}.<br><br>Continue?</p><div class="row"><button class="btn" onclick="doRestore()">Yes, restore</button><button class="btn white" onclick="grownups()">Cancel</button></div>`)};
-window.doRestore=()=>{const b=window._pendingRestore;if(!b)return;restoring=true;try{localStorage.setItem(KEY,JSON.stringify(b.save))}catch(e){restoring=false;grownups("😕 Couldn't save the backup on this phone.");return}location.replace(location.pathname)};
+window.doRestore=()=>{const b=window._pendingRestore;if(!b)return;restoring=true;try{localStorage.setItem(KEY,JSON.stringify(b.save))}catch(e){restoring=false;grownups("😕 Couldn't save the backup on this phone.");return}if(CL.on)clMetaSet({localTs:Date.now(),dirty:true});location.replace(location.pathname)};
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}
+
+// ---------- CLOUD: Supabase save, best friends, live visits over Realtime ----------
+// Everything below is inert when SUPABASE_URL / SUPABASE_ANON_KEY are empty (CL.on === false).
+const SBJS_SRC=['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'];
+const SBJS_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function clHashS(){const o=Object.assign({},S);delete o.x;delete o.y;const s=JSON.stringify(o);let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)+'.'+s.length}
+function clMetaSave(){if(!CL.on||restoring)return;try{localStorage.setItem(CMETA,JSON.stringify(CL.meta))}catch(e){}}
+function clMetaSet(o){Object.assign(CL.meta,o);try{localStorage.setItem(CMETA,JSON.stringify(CL.meta))}catch(e){}}
+function clLoad(){return new Promise((res,rej)=>{let i=0;const next=()=>{if(window.supabase&&window.supabase.createClient)return res();if(i>=SBJS_SRC.length)return rej(new Error('supabase-js could not load'));
+ const s=document.createElement('script');s.src=SBJS_SRC[i++];s.integrity=SBJS_SRI;s.crossOrigin='anonymous';s.async=true;s.onload=next;s.onerror=()=>{s.remove();next()};document.head.appendChild(s)};next()})}
+async function clRpc(fn,args){const r=await CL.sb.rpc(fn,args||{});if(r.error){const e=new Error(r.error.message||fn);e.code=r.error.code;throw e}return r.data}
+const clErr=e=>String(e&&e.message||e||'');
+
+// called from save() whenever the island really changed (position ignored)
+function clOnSave(){if(!S.name||CL.status==='moved')return;const h=clHashS();if(h===CL.hash)return;CL.hash=h;CL.meta.localTs=Date.now();CL.meta.dirty=true;clMetaSave();clSchedule()}
+function clSchedule(){if(!CL.ready)return;const now=Date.now();if(!CL.firstDirty)CL.firstDirty=now;clearTimeout(CL.upT);CL.upT=setTimeout(()=>clUpload(),Math.max(0,Math.min(4000,CL.firstDirty+20000-now)))}
+function clBody(ts){return{owner:CL.uid,save:S,snapshot:snapshot(),save_ts:ts,dropins:CL.dropins}}
+async function clUpload(force){if(!CL.sb||!CL.uid||CL.status==='moved'||!S.name)return false;if(!force&&!CL.meta.dirty)return true;
+ if(CL.uploading){CL.again=true;try{await CL.uploading}catch(e){}if(!force)return true}
+ CL.firstDirty=0;clearTimeout(CL.upT);const ts=CL.meta.localTs||Date.now();
+ CL.uploading=(async()=>{const r=await CL.sb.from('islands').upsert(clBody(ts),{onConflict:'owner'});
+  if(r.error){CL.err=r.error.message||'upload failed';if(r.error.code==='42501'){const st=await clRpc('my_cloud_status').catch(()=>null);if(st&&st.moved)clMoved()}return false}
+  CL.meta.syncedTs=ts;if(CL.meta.localTs===ts)CL.meta.dirty=false;CL.lastUp=Date.now();CL.err='';clMetaSave();return true})();
+ try{return await CL.uploading}catch(e){CL.err=clErr(e);return false}finally{CL.uploading=null;if(CL.again){CL.again=false;if(CL.meta.dirty)clSchedule()}}}
+// page is being hidden/closed: fire-and-forget upload that survives the page going away
+function clFlush(){if(!CL.ready||!CL.meta.dirty||!CL.token||!S.name)return;const ts=CL.meta.localTs,body=JSON.stringify(clBody(ts));if(body.length>60000){clUpload(true);return}
+ try{fetch(SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/islands?on_conflict=owner',{method:'POST',keepalive:true,headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+CL.token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body})
+  .then(r=>{if(r.ok){CL.meta.syncedTs=ts;if(CL.meta.localTs===ts)CL.meta.dirty=false;CL.lastUp=Date.now();clMetaSave()}}).catch(()=>{})}catch(e){}}
+
+async function clInit(){if(!CL.on||CL.initing||CL.ready||restoring)return;CL.initing=true;if(CL.status!=='moved')CL.status='loading';
+ try{
+  await clLoad();
+  if(!CL.sb){CL.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'capyIsland.auth'}});
+   CL.sb.auth.onAuthStateChange((ev,s)=>{CL.token=s&&s.access_token||null})}
+  let s=(await CL.sb.auth.getSession()).data.session;
+  if(!s){const r=await CL.sb.auth.signInAnonymously();if(r.error)throw r.error;s=r.data.session}
+  CL.uid=s.user.id;CL.token=s.access_token;
+  if(CL.meta.uid!==CL.uid){CL.meta.uid=CL.uid;CL.meta.syncedTs=0;if(S.name){CL.meta.localTs=CL.meta.localTs||Date.now();CL.meta.dirty=true}}
+  clMetaSave();
+  const st=await clRpc('my_cloud_status');
+  if(st&&st.moved){clMoved();CL.initing=false;return}
+  CL.status='ok';
+  // cloud copy is newer than this phone's copy (e.g. island moved here): use it
+  if(st&&st.has_island&&Number(st.save_ts)>(CL.meta.localTs||0)&&!MP.role){if(await clAdopt()){CL.initing=false;return}}
+  CL.ready=true;CL.err='';
+  if(!st||!st.has_island||CL.meta.dirty)await clUpload(true);
+  clLobbyStart();clHeartbeat();clFriendsRefresh().then(()=>refreshDock());
+  clearInterval(CL.hbT);CL.hbT=setInterval(clHeartbeat,60000);
+ }catch(e){CL.ready=false;if(CL.status!=='moved')CL.status='offline';CL.err=clErr(e)}
+ CL.initing=false;refreshDock()}
+async function clAdopt(){const r=await CL.sb.from('islands').select('save,save_ts').eq('owner',CL.uid).maybeSingle();if(r.error||!r.data)return false;
+ let b;try{b=parseBackup(JSON.stringify(r.data.save))}catch(e){return false}
+ const ts=Number(r.data.save_ts)||Date.now();restoring=true;try{localStorage.setItem(KEY,JSON.stringify(b.save))}catch(e){restoring=false;return false}
+ clMetaSet({localTs:ts,syncedTs:ts,dirty:false});toast('☁️ Loading your island from the cloud...',3000);setTimeout(()=>location.replace(location.pathname),600);return true}
+function clMoved(){CL.status='moved';CL.ready=false;clMetaSet({moved:true});clStopLive()}
+function clStopLive(){clearInterval(CL.hbT);const l=CL.lobby;CL.lobby=null;CL.lobbyOk=false;if(l)try{CL.sb.removeChannel(l)}catch(e){}CL.pipes.forEach(c=>c.close())}
+async function clHeartbeat(){if(!CL.ready||document.hidden)return;try{await clRpc('touch_island',{p_dropins:CL.dropins})}catch(e){}clPullInbox()}
+
+// presents / guestbook stamps friends left while we were away
+async function clPullInbox(){if(!CL.ready||CL.pulling||!S.name||VIS())return;CL.pulling=true;
+ try{const r=await clRpc('claim_inbox');if(r&&((r.gifts||[]).length||(r.guestbook||[]).length)){CL.inbox=CL.inbox||{gifts:[],guestbook:[]};CL.inbox.gifts.push(...(r.gifts||[]));CL.inbox.guestbook.push(...(r.guestbook||[]))}}catch(e){}
+ CL.pulling=false;clApplyInbox()}
+function clApplyInbox(){const r=CL.inbox;if(!r||VIS()||restoring)return;CL.inbox=null;const mid=new Date();mid.setHours(0,0,0,0);let now=0;
+ (Array.isArray(r.gifts)?r.gifts:[]).forEach(x=>{if(!x)return;const it=GIFT_POOL.includes(x.item)?x.item:pick(GIFT_POOL),c=WRAPS[x.c]?x.c:'pink',from=cleanName(x.from);
+  // left before today -> it's "the next day" already: straight onto the beach; left today -> tomorrow (like live-visit presents)
+  if(new Date(x.at)<mid&&S.dayKey===todayKey()){S.fpresents.push({a:beachAngle(),from,c,item:it});now++}else if(S.giftsPending.length<20)S.giftsPending.push({from,c,item:it})});
+ S.fpresents=S.fpresents.slice(-12);
+ const gb=Array.isArray(r.guestbook)?r.guestbook:[];gb.forEach(x=>{if(!x)return;const d=new Date(x.at),dk=isNaN(d)?todayKey():d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();S.guestbook.push({n:cleanName(x.n),c:cleanColor(x.c),s:STAMPS[x.s|0]||STAMPS[0],d:dk})});
+ S.guestbook=S.guestbook.slice(-50);save();hud();
+ if(gb.length)toast(`📝 ${esc(cleanName(gb[gb.length-1].n))} visited your island and signed your guestbook!`,3500);
+ if(now)setTimeout(()=>toast('💝 A friend left you a present on the beach!',3500),gb.length?3700:0);refreshDock()}
+
+async function clFriendsRefresh(){if(!CL.ready)return CL.friends;try{const r=await clRpc('list_friends');
+ CL.friends=(Array.isArray(r)?r:[]).filter(f=>f&&UUID_RE.test(f.friend)).map(f=>({id:f.friend,name:cleanName(f.name),color:cleanColor(f.color),online:!!f.online}));CL.frT=Date.now();
+ CL.meta.friends=CL.friends.map(f=>({id:f.id,name:f.name,color:f.color}));clMetaSave()}catch(e){}return CL.friends}
+window.clUnfriend=async id=>{if(!UUID_RE.test(id))return;try{await clRpc('remove_friend',{p_friend:id});CL.friends=CL.friends.filter(f=>f.id!==id);CL.meta.friends=CL.friends;clMetaSave();toast('Removed from best friends.')}catch(e){toast("Couldn't do that right now. 📡")}openDock('friends')};
+
+// A private Realtime channel wrapped to look like a PeerJS DataConnection (on/send/close/open/peer),
+// so the existing host/visitor code runs unchanged over Supabase.
+class CloudConn{constructor(topic,peer){this.peer=peer;this.cloud=true;this.open=false;this.closed=false;this.h={};this.last={};this.lastT={};
+  const ch=CL.sb.channel(topic,{config:{private:true,broadcast:{self:false}}});this.ch=ch;
+  ch.on('broadcast',{event:'m'},m=>{if(this.open&&m&&m.payload&&typeof m.payload==='object')this.emit('data',m.payload)});
+  ch.subscribe((st,err)=>{if(this.ch!==ch)return;if(st==='SUBSCRIBED'){if(!this.open&&!this.closed){this.open=true;this.emit('open')}}
+   else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'||st==='CLOSED'){const was=this.open;this.open=false;if(!this.closed){this.closed=true;this.ch=null;try{CL.sb.removeChannel(ch)}catch(e){}this.emit(was?'close':'error',err)}}})}
+ on(ev,f){(this.h[ev]=this.h[ev]||[]).push(f);return this}
+ emit(ev,a){(this.h[ev]||[]).slice().forEach(f=>{try{f(a)}catch(e){console.error(e)}})}
+ // position packets: max ~6/s, and none while nothing moves (2s keep-alive) => about half the Realtime quota of 12/s
+ send(m){if(!this.open||!this.ch)return;if(m&&(m.t==='p'||m.t==='ps')){const j=JSON.stringify(m),now=performance.now(),dt=now-(this.lastT[m.t]||0);if(dt<2000&&(j===this.last[m.t]||dt<150))return;this.last[m.t]=j;this.lastT[m.t]=now}
+  this.ch.send({type:'broadcast',event:'m',payload:m}).catch(()=>{})}
+ close(){if(this.closed)return;const was=this.open;this.open=false;this.closed=true;const ch=this.ch;this.ch=null;if(ch)setTimeout(()=>{try{CL.sb.removeChannel(ch)}catch(e){}},250);if(was)this.emit('close')}}
+
+// ----- host side: my lobby channel island:<me> (presence = "I'm playing, drop in!", broadcast = knocks)
+function clLobbyStart(){if(!CL.ready||CL.lobby)return;const ch=CL.sb.channel('island:'+CL.uid,{config:{private:true,broadcast:{self:false},presence:{key:'host',enabled:true}}});CL.lobby=ch;CL.lobbyOk=false;CL.tracked='';
+ ch.on('broadcast',{event:'knock'},m=>clKnock(m&&m.payload));
+ ch.subscribe(st=>{if(CL.lobby!==ch)return;if(st==='SUBSCRIBED'){CL.lobbyOk=true;CL.tracked='';clTrack()}
+  else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){CL.lobbyOk=false;CL.lobby=null;try{CL.sb.removeChannel(ch)}catch(e){}clearTimeout(CL.lobT);CL.lobT=setTimeout(clLobbyStart,20000)}})}
+function clTrack(){if(!CL.lobby||!CL.lobbyOk)return;const away=MP.role==='visitor'||MP.role==='connecting'||document.hidden;
+ const want=!away&&(CL.dropins||(MP.role==='host'&&!!MP.code))?(MP.role==='host'&&MP.vis.size>=MAX_VIS?'full':'on'):'';if(want===CL.tracked)return;CL.tracked=want;
+ try{(want?CL.lobby.track({h:1,full:want==='full'?1:0}):CL.lobby.untrack()).catch(()=>{})}catch(e){}}
+function clKnock(p){const vid=String(p&&p.from||'');if(!UUID_RE.test(vid)||vid===CL.uid||!CL.ready)return;
+ if(MP.role==='visitor'||MP.role==='connecting'||document.hidden)return;
+ if(!(CL.dropins||(MP.role==='host'&&MP.hostState==='open')))return;
+ if(CL.pipes.has(vid)||CL.pipes.size>=6)return;
+ // one private pipe per visitor: visit:<me>:<visitor>; Realtime RLS only lets the two of them in, and only if friends
+ const conn=new CloudConn('visit:'+CL.uid+':'+vid,vid);CL.pipes.set(vid,conn);
+ const gone=()=>{if(CL.pipes.get(vid)===conn)CL.pipes.delete(vid)};conn.on('close',gone);conn.on('error',gone);
+ conn.on('data',d=>{if(d&&d.t==='hello'&&!MP.role&&!document.hidden&&CL.ready){MP.role='host';MP.hostState='open';MP.code=null;MP.dropin=true;MP.vis.clear();MP.players.clear();MP.emo.clear();MP.islJ='';MP.dirty=false}});
+ conn.on('open',()=>{hostConn(conn);setTimeout(()=>{if(!MP.vis.has(vid)&&CL.pipes.get(vid)===conn){conn.close();clDropinEnd();mpUI()}},12000)})}
+function clDropinEnd(){if(MP.role==='host'&&MP.dropin&&!MP.vis.size){MP.role=null;MP.hostState=null;MP.dropin=false;MP.players.clear();MP.emo.clear()}}
+async function clHostOpen(){const my=++CL.openSeq;let code=null;try{await clUpload(true);code=await clRpc('open_island')}catch(e){}
+ if(my!==CL.openSeq||MP.role!=='host'||MP.hostState!=='opening'){if(code&&!(MP.role==='host'&&MP.code===code))clRpc('close_island').catch(()=>{});return}
+ if(!code){if(!MP.vis.size&&peerOK()){hostStart();return}if(MP.vis.size){MP.dropin=true;MP.hostState='open';mpUI();refreshDock();toast("Couldn't make a code right now. 📡");return}hostFail();return}
+ MP.code=code;MP.hostState='open';clTrack();mpUI();refreshDock();SND.yay();if(!MP.dockOpen)toast(`Your island is open! ✈️<br>Code: <b>${MP.code}</b>`,3500);
+ if(peerOK())peerHostExtra(code)}
+// same code also registered on the PeerJS broker, so a friend whose cloud isn't working can still land
+function peerHostExtra(code){let p;try{p=new Peer(PEER_PREFIX+code,PEER_OPTS)}catch(e){return}MP.peer=p;
+ p.on('connection',c=>{if(MP.peer===p&&MP.role==='host')hostConn(c);else try{c.close()}catch(e){}});
+ p.on('error',e=>{if(MP.peer!==p)return;const t=e&&e.type;if(t!=='peer-unavailable'){MP.peer=null;try{p.destroy()}catch(x){}}});
+ p.on('disconnected',()=>{setTimeout(()=>{try{if(MP.peer===p&&!p.destroyed&&p.disconnected)p.reconnect()}catch(e){}},2000)})}
+function clHostClosed(hadCode){if(hadCode&&CL.ready)clRpc('close_island').catch(()=>{});setTimeout(()=>CL.pipes.forEach(c=>c.close()),700);clTrack()}
+
+// ----- visitor side
+async function clVisitByCode(code){let r=null;
+ try{await clUpload(true);r=await clRpc('join_by_code',{p_code:code})}catch(e){if(MP.role!=='connecting')return;const m=clErr(e);
+  if(m.includes('rate_limited'))return visitFail('slow');if(m.includes('own_island'))return visitFail('own');if(m.includes('too_many_friends'))return visitFail('many');
+  if(peerOK())return peerVisit(code);return visitFail('net')}
+ if(MP.role!=='connecting')return;
+ if(!r||!UUID_RE.test(r.owner)){if(peerOK())return peerVisit(code);return visitFail('notfound')}
+ const isNew=!CL.friends.some(f=>f.id===r.owner),nm=cleanName(r.name);
+ clFriendsRefresh();MP.newFriend=isNew?nm:null;clFlyTo(r.owner,nm)}
+window.flyToFriend=id=>{if(!UUID_RE.test(id))return;if(!CL.ready){dockMsg(OFFLINE_MSG);return}if(MP.role){toast(MP.role==='host'?'Close your island first! 🔒':'Already flying! ✈️');return}
+ const f=CL.friends.find(x=>x.id===id),nm=f?f.name:'Friend';save();MP.role='connecting';MP.code=null;MP.newFriend=null;clTrack();
+ modal(`<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Flying to <b>${esc(nm)}</b>'s island...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`);
+ clFlyTo(id,nm)};
+async function clFlyTo(fid,nm){const going=()=>MP.role==='connecting';
+ // 1) is the friend playing? (their presence on island:<friend>)
+ const lobby=CL.sb.channel('island:'+fid,{config:{private:true,broadcast:{self:false},presence:{key:CL.uid,enabled:true}}});MP.clLobby=lobby;
+ const hostState=()=>{let h=[];try{h=lobby.presenceState().host||[]}catch(e){}return h.length?(h[0].full?'full':'on'):''};
+ const online=await new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;clearTimeout(t);res(v)}},t=setTimeout(()=>fin(hostState()),9000);
+  lobby.on('presence',{event:'sync'},()=>{const h=hostState();if(h)fin(h)});
+  lobby.subscribe(st=>{if(st==='SUBSCRIBED')setTimeout(()=>fin(hostState()),1800);else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')fin('denied')})});
+ if(!going()||MP.clLobby!==lobby)return;
+ if(online==='full')return visitFail('full');
+ if(online!=='on'){MP.clLobby=null;try{CL.sb.removeChannel(lobby)}catch(e){}return clSnapVisit(fid,nm)}
+ // 2) live: private pipe visit:<friend>:<me>, then knock on their lobby until they answer with a snapshot
+ const conn=new CloudConn('visit:'+fid+':'+CL.uid,'host');MP.conn=conn;
+ const toSnap=()=>{if(MP.conn!==conn||!going())return;MP.conn=null;conn.close();clearTimeout(MP.clT);const l=MP.clLobby;MP.clLobby=null;if(l)try{CL.sb.removeChannel(l)}catch(e){}clSnapVisit(fid,nm)};
+ conn.on('data',d=>{if(MP.conn===conn)visitorData(d)});
+ conn.on('close',()=>{if(MP.conn!==conn)return;if(MP.role==='visitor')returnHome('lost');else toSnap()});
+ conn.on('error',toSnap);
+ conn.on('open',()=>{let n=0;const knock=()=>{if(MP.conn!==conn||!going())return;try{lobby.send({type:'broadcast',event:'knock',payload:{from:CL.uid}}).catch(()=>{})}catch(e){}
+  conn.send({t:'hello',v:1,name:S.name||'Friend',color:S.vcolor,stack:S.stack.slice(0,15)});if(++n<8)MP.clT=setTimeout(knock,1500)};knock()});
+ clearTimeout(MP.to);MP.to=setTimeout(toSnap,13000)}
+// friend not playing: visit their saved island (read-only snapshot); neighbours come say hi
+async function clSnapVisit(fid,nm){let r=null;try{r=await clRpc('get_friend_island',{p_friend:fid})}catch(e){if(MP.role==='connecting')visitFail('net');return}
+ if(MP.role!=='connecting')return;if(!r||!r.snapshot)return visitFail('notfriend');
+ cleanupPeer();enterVisit({me:'me',isl:Object.assign({},r.snapshot,{name:r.name||nm}),pl:[],nb:null});MP.offline=true;MP.friend=fid;mpUI();
+ NEIGH.forEach((n,i)=>{n.x=n.hx;n.y=n.hy;n.soak=false;n.hi=true;n.tx=P.x+(i-1)*62+30;n.ty=P.y-78+(i===1?-26:0);n.wait=rnd(6,9);n.face=1});
+ setTimeout(()=>{if(MP.offline&&MP.role==='visitor'&&!busy&&!talking)clSayHi()},2600)}
+function clSayHi(){const n=NEIGH.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y))[0];talking=n;const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent=n.e+' '+n.n;
+ T.querySelector('.tt').innerHTML=`Hi ${esc(S.name)}! ${hostName()} is napping right now 💤<br>But we'll show you around! You can sign the guestbook at the seaplane ✈️`;T.querySelector('.th').textContent='';
+ const row=T.querySelector('.row');row.innerHTML='';const b=document.createElement('button');b.className='btn white';b.textContent='Hi! 👋';b.onclick=closeTalk;row.appendChild(b)}
+async function clOfflineSign(i){const hn=hostName();try{const ok=await clRpc('sign_guestbook',{p_friend:MP.friend,p_stamp:i});toast(ok?`📝 You signed ${hn}'s guestbook! 💕`:`📝 You already signed ${hn}'s guestbook today!`,2800)}
+ catch(e){MP.signed=false;toast("The seaplane radio isn't working. 📡 Try again!");refreshDock()}}
+async function clOfflineGift(c){const hn=hostName();try{const ok=await clRpc('leave_present',{p_friend:MP.friend,p_wrap:c});toast(ok?`🎁 Your present will be on ${hn}'s beach tomorrow!`:`🎁 ${hn} hasn't opened your last present yet!`,3200)}
+ catch(e){MP.gave=false;toast("The seaplane radio isn't working. 📡 Try again!");refreshDock()}}
+
+// ----- grown-ups: cloud status + move to a new phone
+function clAgo(t){const s=Math.round((Date.now()-t)/1000);return s<60?'just now':s<3600?Math.round(s/60)+' min ago':Math.round(s/3600)+' h ago'}
+function clStatusText(){if(CL.status==='ok'){const n=CL.friends.length;return `☁️ Cloud save is on. ${CL.meta.dirty?'Saving soon...':'All saved'}${CL.lastUp?' ('+clAgo(CL.lastUp)+')':''}.<br>💕 ${n} best friend${n===1?'':'s'}`}
+ if(CL.status==='loading')return '☁️ Connecting to the cloud...';
+ if(CL.status==='moved')return '📱 This island was moved to another phone, so cloud saving is off here. The game still works on this phone.';
+ return '📴 Cloud is offline right now. Saving on this phone only; it will sync when the internet is back.'+(CL.err?`<br><small>${esc(CL.err.slice(0,140))}</small>`:'')}
+function clPanelHtml(){return `<h3>☁️ Cloud save</h3><p class="note" style="font-size:14px;margin-top:0">${clStatusText()}</p>`+
+ (CL.status==='moved'?`<button class="btn big white" onclick="clFreshCloud()">Start a new cloud island on this phone</button>`:
+ `<label style="display:flex;gap:8px;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-top:8px"><input type="checkbox" id="cldrop" ${CL.dropins?'checked':''}> Best friends can drop in while ${esc(S.name||'your child')} plays</label>
+ <button class="btn big white" onclick="clMakeTransfer()" ${CL.ready?'':'disabled'}>📱 Move to a new phone</button><div id="clxfer"></div>`)+clClaimHtml()}
+function clClaimHtml(){return `<p class="c" style="font-size:14px;margin:12px 0 4px">On a <b>new</b> phone? Type the code from the old phone:</p><input class="name" id="clxin" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="font-size:18px;user-select:text;-webkit-user-select:text"><div class="row"><button class="btn white" onclick="clClaimAsk(document.getElementById('clxin').value)">Move island to this phone</button></div>`}
+function clPanelWire(){const c=$('#cldrop');if(c)c.onchange=()=>{CL.dropins=c.checked;clMetaSet({dropins:CL.dropins});clTrack();if(CL.ready)clRpc('touch_island',{p_dropins:CL.dropins}).catch(()=>{})}}
+window.clMakeTransfer=async()=>{const box=$('#clxfer');if(!box)return;box.innerHTML='<p class="c">Making a code...</p>';
+ try{await clUpload(true);const r=await clRpc('create_transfer_code');if(!document.body.contains(box))return;
+  box.innerHTML=`<div class="code" style="font-size:26px;letter-spacing:3px;padding-left:3px;user-select:text;-webkit-user-select:text">${esc(r.code)}</div><p class="c" style="font-size:13px">On the new phone: open Capy Island, tap <b>“Moving from another phone?”</b> on the welcome screen (or hold ⚙️) and type this code.<br>It works <b>once</b>, for 24 hours. After the move this phone stops cloud saving.<br>🔒 Keep it private: this code hands over the island.</p>`}
+ catch(e){if(document.body.contains(box))box.innerHTML=`<p class="note">😕 Couldn't make a code right now. Check the internet and try again.</p>`}};
+function clBack(msg){S.name?grownups(msg):clMoveHere(msg)}
+window.clMoveHere=msg=>{modal(`<h2>📱 Moving from another phone</h2>${msg?`<p class="note">${msg}</p>`:''}<p class="c" style="font-size:14px">Grown-ups: on the <b>old</b> phone, press and hold ⚙️ and tap “Move to a new phone”. Then type the code here.</p>${clClaimHtml()}<div class="row"><button class="btn" onclick="welcome()">Back</button></div>`)};
+window.clClaimAsk=v=>{const c=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(c.length!==12){clBack('😕 Move codes look like XXXX-XXXX-XXXX.');return}
+ if(MP.role){clBack('Please finish visiting / close your island first. ✈️');return}window._clx=c;
+ modal(`<h2>📱 Move island here?</h2><p class="c" style="font-size:17px">This replaces the island on <b>this</b> phone${S.name?` (${esc(S.name)}'s island, 🪙 ${S.coins|0})`:''} with the island from the old phone.<br><br>Continue?</p><div class="row"><button class="btn" onclick="clClaim()">Yes, move it here</button><button class="btn white" onclick="clBack()">Cancel</button></div>`)};
+window.clClaim=async()=>{const code=window._clx;if(!code)return;window._clx=null;
+ modal('<h2>📱 Moving...</h2><div style="text-align:center;font-size:56px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Bringing the island over...</p>');
+ try{if(!CL.uid)await clInit();if(!CL.uid)throw new Error('offline');const r=await clRpc('claim_transfer',{p_code:code});
+  if(!r||!r.save)return clBack("😕 That code didn't work. It may be mistyped, already used, or older than 24 hours.");
+  let b;try{b=parseBackup(JSON.stringify(r.save))}catch(e){return clBack('😕 The island data looks damaged. Nothing was changed.')}
+  restoring=true;clearTimeout(CL.upT);try{localStorage.setItem(KEY,JSON.stringify(b.save))}catch(e){restoring=false;return clBack("😕 Couldn't save on this phone.")}
+  const ts=Number(r.save_ts)||Date.now();clMetaSet({uid:CL.uid,localTs:ts,syncedTs:ts,dirty:false,moved:false,friends:[]});location.replace(location.pathname)}
+ catch(e){clBack(clErr(e).includes('rate_limited')?'😕 Too many tries. Please wait a while and try again.':"😕 Couldn't reach the cloud. Check the internet and try again.")}};
+window.clFreshCloud=async()=>{try{if(CL.sb)await CL.sb.auth.signOut({scope:'local'})}catch(e){}CL.uid=null;CL.ready=false;CL.status='off';CL.meta={dropins:CL.dropins,localTs:Date.now(),dirty:true};clMetaSave();await clInit();grownups()};
+
+function clStart(){
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){clTrack();clFlush()}else{clTrack();if(CL.ready)clHeartbeat();else clInit()}});
+ addEventListener('pagehide',clFlush);addEventListener('online',()=>clInit());
+ setInterval(()=>{if(!CL.ready&&!document.hidden&&CL.status!=='moved')clInit()},120000);
+ clInit()}
 
 // ---------- START ----------
 islReady=true;buildIsland();
 const QS=new URLSearchParams(location.search);let pendingVisit=(QS.get('visit')||'').toUpperCase();if(!/^[A-Z0-9]{5}$/.test(pendingVisit)||[...pendingVisit].some(c=>!CODE_ABC.includes(c)))pendingVisit='';
 if(QS.has('visit'))try{QS.delete('visit');history.replaceState(null,'',location.pathname+(QS.toString()?'?'+QS:'')+location.hash)}catch(e){}
 function maybeVisit(){if(pendingVisit){const c=pendingVisit;pendingVisit='';setTimeout(()=>openDock('visit',c),700)}}
-function welcome(){modal(`<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.<br>✈️ Tap the seaplane to visit friends!</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>`);
+function welcome(){modal(`<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.<br>✈️ Tap the seaplane to visit friends!</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>${CL.on?'<p class="c" style="font-size:13px;margin:12px 0 0"><a href="#" style="color:#b0487c" onclick="clMoveHere();return false">📱 Moving from another phone? (grown-ups)</a></p>':''}`);
  $('#go').onclick=()=>{S.name=($('#nm').value.trim()||'Emi').slice(0,12);closeModal();newDay(true);hud();save();toast('Look! There are presents on the beach! 🎁',3500);maybeVisit()}}
 if(QS.has('newday')){S.dayKey='';}
 hud();
@@ -766,6 +996,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else
 addEventListener('pagehide',()=>{if(MP.role==='visitor')try{MP.conn&&MP.conn.send({t:'bye'})}catch(e){}if(MP.role==='host')try{broadcast({t:'closed'})}catch(e){}});
 setInterval(save,5000);
 requestAnimationFrame(loop);
+if(CL.on)clStart();
 </script>
 </body>
 </html>
