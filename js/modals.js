@@ -157,31 +157,46 @@ window.buy = k => {
 };
 
 // ---------- HOUSE ----------
+// my house, or (while visiting a best friend) theirs to look around (#5)
+const houseGuest = () => ONV() && !!MP.island.room;
 function openHouse() {
-  if (VIS()) return;
+  const guest = houseGuest();
+  if (VIS() && !guest) return;
   busy = true;
   closeTalk();
-  $('#house').classList.remove('hidden');
-  $('#htitle').textContent = `${S.name}'s House`;
+  const h = $('#house');
+  h.classList.remove('hidden');
+  h.classList.toggle('guest', guest);
+  $('#htitle').textContent = `${guest ? MP.island.name : S.name}'s House`;
+  $('#house .hint').textContent = guest
+    ? `You're visiting! Tap things to see what they are. 🏠`
+    : 'Tap a square to put furniture there. Tap furniture to put it away.';
   drawRoom();
 }
 function drawRoom() {
-  const f = $('#floor');
+  const guest = houseGuest(),
+    room = guest ? MP.island.room : S.room,
+    f = $('#floor');
   f.innerHTML = '';
-  S.room.forEach((id, i) => {
+  room.forEach((id, i) => {
     const d = document.createElement('div');
     d.className = 'slot';
     d.innerHTML = id ? ie(id) : '';
-    d.onclick = () => slotTap(i);
+    d.onclick = () => (guest ? id && toast(`${ie(id)} ${esc(ITEMS[id].n)}`, 1800) : slotTap(i));
     f.appendChild(d);
   });
-  const n = S.room.filter(Boolean).length,
-    u = new Set(S.room.filter(Boolean)).size;
+  const n = room.filter(Boolean).length,
+    u = new Set(room.filter(Boolean)).size;
   const stars =
     n === 0 ? '' : n < 4 ? '⭐' : n < 8 ? '⭐⭐' : n < 13 ? '⭐⭐⭐' : u >= 12 ? '⭐⭐⭐⭐⭐' : '⭐⭐⭐⭐';
-  $('#score').textContent = n ? `Cozy level: ${stars}` : "Your house is empty. Let's decorate!";
+  $('#score').textContent = n
+    ? `Cozy level: ${stars}`
+    : guest
+      ? `${MP.island.name}'s house is empty right now!`
+      : "Your house is empty. Let's decorate!";
 }
 function slotTap(i) {
+  if (VIS()) return;
   const id = S.room[i];
   if (id) {
     S.room[i] = null;
@@ -213,6 +228,7 @@ window.place = (i, k) => {
 };
 $('#hexit').onclick = () => {
   $('#house').classList.add('hidden');
+  $('#house').classList.remove('guest');
   busy = false;
   P.tx = HOUSE.x;
   P.ty = HOUSE.y + 30;

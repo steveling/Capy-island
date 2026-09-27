@@ -72,7 +72,7 @@ function clSchedule() {
   CL.upT = setTimeout(() => clUpload(), Math.max(0, Math.min(4000, CL.firstDirty + 20000 - now)));
 }
 function clBody(ts) {
-  return { owner: CL.uid, save: S, snapshot: snapshot(), save_ts: ts, dropins: CL.dropins };
+  return { owner: CL.uid, save: S, snapshot: snapshot(true), save_ts: ts, dropins: CL.dropins };
 }
 async function clUpload(force) {
   if (!CL.sb || !CL.uid || CL.status === 'moved' || !S.name) return false;
