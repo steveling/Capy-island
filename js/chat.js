@@ -116,7 +116,7 @@ function chatShow(id, name, color, x) {
   if ($('#chat').classList.contains('hidden')) {
     if (id !== 'me') MP.chatUnread++;
   } else chatLog();
-  if (id !== 'me') SND.pop();
+  if (id !== 'me') SND.ding();
   chatUI();
 }
 

@@ -72,11 +72,66 @@ test('a chosen emote shows over my capybara on the other phone', async ({ game, 
   });
   await ben.page.locator('#bEmo').click();
   await ben.page.locator('#emobar button').first().click();
-  await expect.poll(() => game.page.evaluate(() => MP.emo.get('ben') && MP.emo.get('ben').e)).toBe('🦋');
+  await expect
+    .poll(() => game.page.evaluate(() => MP.emo.get('ben') && MP.emo.get('ben').at(-1).e))
+    .toBe('🦋');
 
   // an emote number outside the list is ignored
   await ben.page.evaluate(() => MP.conn.send({ t: 'emo', e: 999 }));
   await ben.page.evaluate(() => MP.conn.send({ t: 'emo', e: -1 }));
   await game.page.waitForTimeout(700);
-  expect(await game.page.evaluate(() => MP.emo.get('ben').e)).toBe('🦋');
+  expect(await game.page.evaluate(() => MP.emo.get('ben').at(-1).e)).toBe('🦋');
+});
+
+test('emotes float up from the sender like smoke', async ({ page, game }) => {
+  await game.open();
+  await game.newPlayer('Ada', '🦄');
+  const r = await page.evaluate(() => {
+    // draw with a stopped clock and record where each puff lands
+    const drawn = [],
+      real = emoji;
+    emoji = (e, x, y, size) => drawn.push({ e, x, y, size, alpha: ctx.globalAlpha });
+    const at = (t, list) => {
+      drawn.length = 0;
+      time = t;
+      emoSmoke(100, 50, list);
+      return drawn.map(d => Object.assign({}, d));
+    };
+    const one = [{ e: '💖', t: 10 }];
+    const out = {
+      start: at(10.05, one),
+      mid: at(10.5, one),
+      later: at(11.2, one),
+      gone: at(10 + EMO_LIFE + 0.05, one),
+      two: at(10.6, [
+        { e: '💖', t: 10 },
+        { e: '🎵', t: 10.4 }
+      ])
+    };
+    emoji = real;
+    // several quick emotes: kept together (up to 4), old ones dropped
+    MP.emo.clear();
+    time = 20;
+    for (let i = 0; i < 6; i++) showEmo('me', i);
+    out.kept = MP.emo.get('me').map(m => m.e);
+    time = 20 + EMO_LIFE + 1;
+    showEmo('me', 0);
+    out.afterWait = MP.emo.get('me').length;
+    return out;
+  });
+  // one puff to start, then more, all above where it started and rising
+  expect(r.start).toHaveLength(1);
+  expect(r.mid.length).toBeGreaterThanOrEqual(3);
+  expect(r.mid.every(p => p.y < 50)).toBe(true);
+  const firstPuff = pts => pts[0];
+  expect(firstPuff(r.later).y).toBeLessThan(firstPuff(r.mid).y);
+  expect(firstPuff(r.later).size).toBeGreaterThan(firstPuff(r.mid).size); // it grows as it rises
+  expect(new Set(r.mid.map(p => Math.round(p.x))).size).toBeGreaterThan(1); // puffs drift, not a straight line
+  // and it fades away completely
+  expect(firstPuff(r.later).alpha).toBeLessThan(1);
+  expect(r.gone).toEqual([]);
+  // two emotes in the air at once
+  expect(new Set(r.two.map(p => p.e))).toEqual(new Set(['💖', '🎵']));
+  expect(r.kept).toEqual(['😂', '⭐', '✨', '🎵']); // the last four of 👋 💖 😂 ⭐ ✨ 🎵
+  expect(r.afterWait).toBe(1);
 });

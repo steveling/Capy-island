@@ -419,7 +419,7 @@ window.pwTry = i => {
   if (pwG[i] === p.pw) {
     t.n = 0;
     try {
-      SND.yay();
+      SND.unlock();
     } catch (e) {}
     modal(
       `<h2>🎉 Yay, ${esc(p.name)}!</h2><div style="text-align:center;font-size:56px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">That's it! Flying to your island...</p>`

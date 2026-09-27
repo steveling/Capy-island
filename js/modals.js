@@ -146,7 +146,7 @@ window.buy = k => {
     return;
   S.coins -= ITEMS[k].buy;
   const first = addItem(k);
-  SND.yay();
+  SND.coin();
   hud();
   save();
   openShop();
@@ -201,7 +201,7 @@ function slotTap(i) {
   if (id) {
     S.room[i] = null;
     addItem(id);
-    SND.pop();
+    SND.lift();
     save();
     drawRoom();
     return;
@@ -220,7 +220,7 @@ function slotTap(i) {
 window.place = (i, k) => {
   if (VIS() || !takeItem(k)) return;
   S.room[i] = k;
-  SND.pop();
+  SND.thunk();
   save();
   closeModal();
   busy = true;

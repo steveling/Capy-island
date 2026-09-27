@@ -558,7 +558,7 @@ async function clHostOpen() {
   clTrack();
   mpUI();
   refreshDock();
-  SND.yay();
+  SND.whoosh();
   if (!MP.dockOpen) toast(`Your island is open! ✈️<br>Code: <b>${MP.code}</b>`, 3500);
 }
 // (unused in cloud mode: the public PeerJS broker would let a phone without the passcode land)

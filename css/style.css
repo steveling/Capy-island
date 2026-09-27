@@ -1352,3 +1352,52 @@ body.kb #chat {
 body.kb #chatlog {
   max-height: max(44px, min(28vh, calc(var(--vvh) - 150px)));
 }
+/* fishing rod and line (drawn by fishDraw) */
+#rod {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+#rodline {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.6;
+}
+#rodpole {
+  fill: none;
+  stroke: #b7794a;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+#rodhandle {
+  fill: none;
+  stroke: #ff8cc6;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+#rodreel {
+  fill: #fff;
+  stroke: #d94b90;
+  stroke-width: 3;
+}
+#bobber {
+  z-index: 2;
+}
+/* casting: the bobber flies in an arc from the rod tip (offset --cx/--cy) to the middle of the water */
+#bobber.cast {
+  animation: cast 0.45s ease-out;
+}
+@keyframes cast {
+  from {
+    transform: translate(calc(-50% + var(--cx)), calc(-50% + var(--cy))) scale(0.55);
+  }
+  45% {
+    transform: translate(calc(-50% + var(--cx) * 0.45), calc(-50% + var(--cy) * 0.6 - 26px)) scale(0.8);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

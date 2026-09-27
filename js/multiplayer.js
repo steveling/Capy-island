@@ -151,9 +151,12 @@ function rpUpdate(r, dt) {
   r.face = s.f;
   r.soak = s.s;
 }
+// each player's recent emotes, drawn as puffs of emoji smoke (emoSmoke in render.js); several can be in the air
 function showEmo(id, i) {
   if (!EMOTE_POOL[i]) return;
-  MP.emo.set(id, { e: EMOTE_POOL[i], t: time });
+  const l = (MP.emo.get(id) || []).filter(m => time - m.t < EMO_LIFE);
+  l.push({ e: EMOTE_POOL[i], t: time });
+  MP.emo.set(id, l.slice(-4));
   SND.pop();
 }
 function cleanupPeer() {
@@ -308,7 +311,7 @@ function hostStart() {
     MP.hostState = 'open';
     mpUI();
     refreshDock();
-    SND.yay();
+    SND.whoosh();
     if (!MP.dockOpen) toast(`Your island is open! ✈️<br>Code: <b>${MP.code}</b>`, 3500);
   });
   p.on('connection', c => {
@@ -428,7 +431,7 @@ function hostConn(conn) {
         v.id
       );
       toast(`🛬 ${esc(v.name)} flew in to visit! 💕`, 3000);
-      SND.yay();
+      SND.whoosh();
       mpUI();
       refreshDock();
       return;
@@ -781,8 +784,7 @@ function enterVisit(d) {
   MP.savedBugs = bugs;
   bugs = [];
   parts = [];
-  clearTimeout(F && F.t);
-  F = null;
+  fishStop();
   $('#fish').classList.add('hidden');
   $('#house').classList.add('hidden');
   $('#museum').classList.add('hidden');
@@ -810,7 +812,7 @@ function enterVisit(d) {
     } catch (e) {}
   }
   mpUI();
-  SND.yay();
+  SND.whoosh();
   toast(`✈️ Welcome to ${hostName()}'s island!`, 3000);
   if (MP.newFriend) {
     const nf = MP.newFriend;
@@ -897,7 +899,7 @@ window.mpSign = i => {
     try {
       MP.conn.send({ t: 'sign', s: i });
     } catch (e) {}
-  SND.yay();
+  SND.stamp();
   openDock();
 };
 window.mpGift = c => {
@@ -908,7 +910,7 @@ window.mpGift = c => {
     try {
       MP.conn.send({ t: 'gift', c });
     } catch (e) {}
-  SND.yay();
+  SND.present();
   burst(P.x, P.y - 60, '🎁', 5);
   openDock();
 };

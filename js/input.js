@@ -26,6 +26,11 @@ function dockHit(x, y) {
 }
 function tapWorld(x, y) {
   if (tapSky(x, y)) return;
+  const onHouse = Math.abs(x - HOUSE.x) < 66 && y < HOUSE.y + 6 && y > HOUSE.y - 135;
+  if (ONV() && MP.offline && MP.island && !onHouse && dist(x, y, NAP.x, NAP.y - 24) < 58) {
+    toast(`Shh... ${hostName()} is taking a nap 💤`);
+    return;
+  }
   for (const b of bugs)
     if (dist(x, y, b.x, b.y - 10) < 34) {
       P.act = { k: 'bug', b };
@@ -115,6 +120,7 @@ function presentPos(i) {
 // ---------- UPDATE ----------
 function update(dt) {
   time += dt;
+  napTick(dt);
   const a = P.act;
   if (a && a.k === 'bug') {
     if (!bugs.includes(a.b)) {
@@ -203,7 +209,7 @@ function update(dt) {
     if (want.length && inn.length === want.length) {
       S.soakDay = S.dayKey;
       inn.forEach(n => friend(n, 1));
-      SND.yay();
+      SND.heart();
       openSpring(`Ahhh... ♨️ ${inn.map(n => n.n).join(' and ')} came to soak with you! 💕 What a happy day!`);
       save();
     }

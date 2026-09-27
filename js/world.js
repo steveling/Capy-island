@@ -77,50 +77,6 @@ function burst(x, y, e, n = 6) {
   for (let i = 0; i < n; i++) parts.push({ x, y, e, vx: rnd(-60, 60), vy: rnd(-160, -80), life: 1.2 });
 }
 
-// sound
-let AC;
-function beep(notes) {
-  try {
-    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
-    let t = AC.currentTime;
-    notes.forEach(([f, d]) => {
-      const o = AC.createOscillator(),
-        g = AC.createGain();
-      o.type = 'triangle';
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.12, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + d);
-      o.connect(g).connect(AC.destination);
-      o.start(t);
-      o.stop(t + d);
-      t += d * 0.8;
-    });
-  } catch (e) {}
-}
-const SND = {
-  yay: () =>
-    beep([
-      [660, 0.12],
-      [880, 0.12],
-      [1175, 0.25]
-    ]),
-  pop: () =>
-    beep([
-      [520, 0.08],
-      [780, 0.12]
-    ]),
-  oops: () =>
-    beep([
-      [400, 0.15],
-      [300, 0.25]
-    ]),
-  coin: () =>
-    beep([
-      [988, 0.08],
-      [1319, 0.2]
-    ])
-};
-
 // ---------- DAYS ----------
 function todayKey() {
   const d = new Date();
