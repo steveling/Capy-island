@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#ff8cc6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Capy Island</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#7fd3f0;font-family:"Nunito","Trebuchet MS",system-ui,sans-serif;touch-action:none}
+canvas{display:block;position:fixed;inset:0}
+.hidden{display:none!important}
+#top{position:fixed;top:calc(8px + env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none;z-index:5}
+.pill{background:#fff;border:3px solid #ff8cc6;border-radius:999px;padding:6px 14px;font-weight:800;font-size:18px;color:#c2427f;box-shadow:0 3px 0 #e56aa8}
+#bottom{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;gap:14px;z-index:5}
+#bottom button{width:74px;height:74px;border-radius:24px;border:3px solid #ff8cc6;background:#fff;font-size:30px;box-shadow:0 4px 0 #e56aa8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;color:#c2427f}
+#bottom button span{font-size:13px;font-weight:800;margin-top:2px}
+#bottom button:active{transform:translateY(3px);box-shadow:0 1px 0 #e56aa8}
+#toast{position:fixed;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#fff;color:#c2427f;border:3px solid #ff8cc6;border-radius:18px;padding:10px 16px;font-weight:800;font-size:17px;text-align:center;max-width:88vw;z-index:20;box-shadow:0 4px 0 #e56aa8;transition:opacity .3s;opacity:0;pointer-events:none}
+#toast.show{opacity:1}
+#modal{position:fixed;inset:0;background:rgba(120,40,80,.35);display:flex;align-items:center;justify-content:center;z-index:30;padding:14px}
+.card{background:#fff7fb;border:4px solid #ff8cc6;border-radius:26px;width:min(440px,100%);max-height:88vh;overflow:auto;padding:18px;box-shadow:0 6px 0 #e56aa8;color:#7a2a55}
+.card h2{margin:0 0 10px;text-align:center;color:#d94b90;font-size:24px}
+.btn{border:3px solid #ff8cc6;background:#ff9fcf;color:#fff;font-weight:900;font-size:17px;border-radius:16px;padding:10px 16px;box-shadow:0 3px 0 #e56aa8;font-family:inherit}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #e56aa8}
+.btn.white{background:#fff;color:#d94b90}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.tabs{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
+.tabs .btn{padding:8px 12px;font-size:15px}
+.tabs .btn.off{background:#fff;color:#d94b90}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cell{background:#fff;border:3px solid #ffd0e6;border-radius:16px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;position:relative}
+.cell small{font-size:11px;font-weight:800;color:#b0487c;text-align:center;line-height:1.1;padding:0 2px}
+.cell .cnt{position:absolute;top:2px;right:6px;font-size:13px;font-weight:900;color:#d94b90}
+.cell.unk{background:#f4e6ee;color:#caa;font-size:26px;font-weight:900}
+.list .li{display:flex;align-items:center;gap:10px;background:#fff;border:3px solid #ffd0e6;border-radius:16px;padding:8px 10px;margin-bottom:8px}
+.li .e{font-size:30px}
+.li .t{flex:1;font-weight:800}
+.li .t small{display:block;font-weight:700;color:#b0487c}
+.li .btn{padding:6px 10px;font-size:14px}
+input.name{font-size:22px;font-weight:800;text-align:center;border:3px solid #ff8cc6;border-radius:16px;padding:10px;width:100%;color:#c2427f;font-family:inherit}
+#talk{position:fixed;left:10px;right:10px;bottom:calc(100px + env(safe-area-inset-bottom));z-index:25;background:#fff;border:4px solid #ff8cc6;border-radius:24px;padding:14px 16px;box-shadow:0 5px 0 #e56aa8;color:#7a2a55;max-width:520px;margin:0 auto}
+#talk .tn{position:absolute;top:-18px;left:18px;background:#ff8cc6;color:#fff;border-radius:999px;padding:3px 14px;font-weight:900;font-size:16px}
+#talk .tt{font-size:18px;font-weight:700;margin-top:4px;min-height:44px}
+#talk .th{font-size:15px;margin-top:6px}
+#fish{position:fixed;inset:0;z-index:28;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(40,110,160,.35)}
+#fwater{width:min(360px,86vw);height:230px;border-radius:30px;background:radial-gradient(circle at 50% 50%,#9fe3ff,#4db6e6);border:4px solid #fff;position:relative;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.15)}
+#bobber{position:absolute;left:50%;top:50%;font-size:40px;transform:translate(-50%,-50%);transition:transform .15s}
+#ripple{position:absolute;left:50%;top:50%;width:60px;height:24px;border:3px solid rgba(255,255,255,.8);border-radius:50%;transform:translate(-50%,-10%);animation:rip 1.6s infinite}
+@keyframes rip{0%{width:30px;height:10px;opacity:1}100%{width:140px;height:50px;opacity:0}}
+#fmsg{margin-top:14px;font-size:22px;font-weight:900;color:#fff;text-shadow:0 2px 0 #2b7fb0;text-align:center;padding:0 10px}
+#fish .btn{margin-top:14px}
+#fbtn{font-size:24px;padding:14px 30px}
+#fbtn.bite{animation:pulse .3s infinite alternate;background:#ff5fa8}
+@keyframes pulse{to{transform:scale(1.12)}}
+#house{position:fixed;inset:0;z-index:27;background:#ffe3ef;display:flex;flex-direction:column;align-items:center;padding:calc(14px + env(safe-area-inset-top)) 10px 10px}
+#house h2{color:#d94b90;margin:6px 0 4px}
+#house .hint{color:#b0487c;font-weight:700;font-size:14px;margin-bottom:8px;text-align:center}
+#room{width:min(420px,94vw);border:6px solid #e882b4;border-radius:18px;overflow:hidden;background:#fff}
+#wall{height:60px;background:repeating-linear-gradient(90deg,#ffc0dc 0 18px,#ffd6e8 18px 36px);border-bottom:6px solid #d9709f;display:flex;align-items:center;justify-content:center;font-size:30px}
+#floor{display:grid;grid-template-columns:repeat(5,1fr);background:repeating-conic-gradient(#fff1f7 0 25%,#ffdcec 0 50%) 0 0/25% 33.33%}
+#floor .slot{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:38px;border:1px dashed rgba(217,112,159,.25)}
+#score{margin-top:10px;font-weight:900;color:#d94b90;font-size:18px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top"><div class="pill" id="coins">🪙 0</div><div class="pill" id="daypill">☀️ Day 1</div></div>
+<div id="bottom">
+  <button id="bBag">🎒<span>Bag</span></button>
+  <button id="bBook">📖<span>Book</span></button>
+  <button id="bHome">🏠<span>Home</span></button>
+</div>
+<div id="toast"></div>
+<div id="talk" class="hidden"><div class="tn"></div><div class="tt"></div><div class="th"></div><div class="row"></div></div>
+<div id="fish" class="hidden"><div id="fwater"><div id="ripple"></div><div id="bobber">🔴</div></div><div id="fmsg"></div><button class="btn" id="fbtn">Reel in!</button><button class="btn white" id="fcancel">Stop fishing</button></div>
+<div id="house" class="hidden"><h2 id="htitle">My House</h2><div class="hint">Tap a square to put furniture there. Tap furniture to put it away.</div><div id="room"><div id="wall">🪟 💗 🪟</div><div id="floor"></div></div><div id="score"></div><div class="row"><button class="btn" id="hexit">Go outside 🌳</button></div></div>
+<div id="modal" class="hidden"><div class="card" id="card"></div></div>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const cv=$('#c'),ctx=cv.getContext('2d');
+let W,H,DPR,SCALE;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';SCALE=Math.max(.8,Math.min(1.7,Math.min(W,H)/400));}
+addEventListener('resize',resize);resize();
+const EMO='"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif';
+const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)], dist=(a,b,c,d)=>Math.hypot(a-c,b-d);
+
+// ---------- DATA ----------
+const ITEMS={
+ orange:{e:'🍊',n:'Orange',p:30,k:'fruit'},yuzu:{e:'🍋',n:'Yuzu',p:40,k:'fruit'},
+ butterfly:{e:'🦋',n:'Butterfly',p:60,k:'bug',w:20,fly:1},ladybug:{e:'🐞',n:'Ladybug',p:50,k:'bug',w:20},bee:{e:'🐝',n:'Bee',p:90,k:'bug',w:12,fly:1},caterpillar:{e:'🐛',n:'Caterpillar',p:40,k:'bug',w:18},cricket:{e:'🦗',n:'Cricket',p:70,k:'bug',w:12},snail:{e:'🐌',n:'Snail',p:45,k:'bug',w:15},ant:{e:'🐜',n:'Ant',p:30,k:'bug',w:15},beetle:{e:'🪲',n:'Shiny Beetle',p:250,k:'bug',w:4},
+ fish:{e:'🐟',n:'Little Fish',p:50,k:'fish',w:30},tropical:{e:'🐠',n:'Rainbow Fish',p:120,k:'fish',w:18},crab:{e:'🦀',n:'Crab',p:90,k:'fish',w:16},shrimp:{e:'🦐',n:'Shrimp',p:60,k:'fish',w:16},puffer:{e:'🐡',n:'Pufferfish',p:200,k:'fish',w:8},squid:{e:'🦑',n:'Squid',p:180,k:'fish',w:7},octopus:{e:'🐙',n:'Octopus',p:250,k:'fish',w:5},shark:{e:'🦈',n:'Shark',p:600,k:'fish',w:2}
+};
+const FURN=[['bed','🛏️','Cozy Bed',300],['chair','🪑','Wooden Chair',150],['sofa','🛋️','Comfy Sofa',450],['plant','🪴','Potted Plant',120],['teddy','🧸','Teddy Bear',200],['painting','🖼️','Painting',350],['bow','🎀','Giant Bow',250],['tulips','🌷','Tulip Vase',140],['piano','🎹','Piano',800],['tv','📺','TV',600],['mirror','🪞','Mirror',300],['lantern','🏮','Paper Lantern',220],['clock','🕰️','Clock',280],['teapot','🫖','Teapot',160],['cake','🎂','Party Cake',260],['guitar','🎸','Guitar',500],['basket','🧺','Picnic Basket',130],['globe','🌍','Globe',320],['books','📚','Bookshelf',380],['bath','🛁','Bathtub',700],
+ ['unicorn','🦄','Unicorn Plush',0,1],['carousel','🎠','Carousel',0,1],['fountain','⛲','Fountain',0,1],['rainbow','🌈','Rainbow',0,1],['crown','👑','Royal Crown',0,1],['cupcake','🧁','Cupcake Tower',0,1],['doll','🪆','Nesting Dolls',0,1],['trophy','🏆','Golden Trophy',0,1],['balloon','🎈','Balloons',0,1],['sparkle','💖','Sparkly Heart',0,1]];
+FURN.forEach(([id,e,n,p,g])=>ITEMS[id]={e,n,p:g?100:Math.round(p/4),buy:p,k:'furn',gift:!!g});
+const ids=k=>Object.keys(ITEMS).filter(i=>ITEMS[i].k===k);
+const BUYABLE=ids('furn').filter(i=>!ITEMS[i].gift), PRESENT_ONLY=['cupcake','doll','trophy','sparkle'];
+function weighted(k){const l=ids(k);let t=l.reduce((s,i)=>s+ITEMS[i].w,0),r=Math.random()*t;for(const i of l){r-=ITEMS[i].w;if(r<=0)return i}return l[0]}
+
+const CX=700,CY=560,SRX=630,SRY=475,GRX=560,GRY=412;
+function wob(t){return 1+.05*Math.sin(3*t)+.035*Math.sin(5*t+1.3)+.02*Math.sin(9*t+2)}
+function norm(x,y,rx,ry){const dx=(x-CX)/rx,dy=(y-CY)/ry;return Math.hypot(dx,dy)/wob(Math.atan2(dy,dx))}
+function angleOf(x,y){return Math.atan2((y-CY)/SRY,(x-CX)/SRX)}
+function edge(t,rx,ry,k){const w=wob(t)*k;return{x:CX+Math.cos(t)*rx*w,y:CY+Math.sin(t)*ry*w}}
+
+const HOUSE={x:560,y:370},SHOP={x:870,y:370},SPRING={x:700,y:700,rx:75,ry:42};
+const DECO_A=[Math.PI,-2.36,-1.57,-.79,.79,2.36],SOAK=[{x:710,y:692},{x:738,y:708},{x:695,y:716}];
+function decoPos(i){const a=DECO_A[i];return{x:SPRING.x+Math.cos(a)*(SPRING.rx+26),y:SPRING.y+Math.sin(a)*(SPRING.ry+22)}}
+const TREES=[[270,660,'orange'],[460,860,'yuzu'],[950,860,'orange'],[1130,660,'yuzu'],[300,410,'orange'],[1110,410,'yuzu'],[520,610,'yuzu'],[890,610,'orange']].map(([x,y,f])=>({x,y,f,shake:0}));
+const NEIGH=[
+ {id:'mochi',e:'🐰',n:'Mochi',hx:410,hy:520,gifts:['unicorn','carousel'],lines:["Hop hop! What a lovely day!","I tried to count the clouds. I got to eleven!","You have fruit on your head again! Hee hee!","The hot spring is my favorite place on the whole island!"]},
+ {id:'pip',e:'🐤',n:'Pip',hx:990,hy:520,gifts:['rainbow','crown'],lines:["Tweet tweet! I learned a new song today!","Pink is the best color. Everybody knows that!","I saw a shiny beetle by the trees once!","Can I sit on top of your fruit? Just kidding! Tweet!"]},
+ {id:'puddle',e:'🦆',n:'Puddle',hx:700,hy:860,gifts:['balloon','fountain'],lines:["Quack! You're my best friend!","I love splashing in the hot spring!","Fishing is fun! Wait for the splash, then tap!","Capybaras are the calmest animals ever. Quack!"]}
+].map(n=>Object.assign(n,{x:n.hx,y:n.hy,tx:n.hx,ty:n.hy,wait:rnd(1,4),face:1}));
+
+// ---------- SAVE ----------
+const KEY='capyIsland.v2';
+function newSave(){const neigh={};NEIGH.forEach(n=>neigh[n.id]={f:0,req:null,done:false,talked:false,g:[]});return{name:'',coins:200,bag:{},found:{},day:0,dayKey:'',trees:TREES.map(()=>3),presents:[],neigh,stock:[],room:Array(20).fill(null),x:700,y:490,stack:[],spring:Array(6).fill(null),yuzu:0,soakDay:''}}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.neigh)S=newSave();
+function save(){S.x=P.x;S.y=P.y;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+// ---------- STATE ----------
+const P={x:S.x,y:S.y,tx:S.x,ty:S.y,act:null,face:1,walk:0,moving:false,soak:false};
+let bugs=[],parts=[],busy=false,talking=null,bugTimer=0,time=0;
+const FLOWERS=[];(function(){let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<140;i++){const x=150+r()*1100,y=150+r()*830;if(norm(x,y,GRX,GRY)<.93&&dist(x,y,HOUSE.x,HOUSE.y-30)>80&&dist(x,y,SHOP.x,SHOP.y-30)>80&&dist(x,y,SPRING.x,SPRING.y)>115)FLOWERS.push({x,y,c:['#ff7fbf','#ffffff','#ffb3d9','#ff4f9e','#fff27a'][Math.floor(r()*5)],g:r()<.4})}})();
+
+function addItem(id,n=1){S.bag[id]=(S.bag[id]||0)+n;if(ITEMS[id].k==='fruit')for(let i=0;i<n;i++)S.stack.push(id);const first=!S.found[id];S.found[id]=1;return first}
+function takeItem(id,n=1){if((S.bag[id]||0)<n)return false;if(ITEMS[id].k==='fruit')for(let i=0;i<n;i++){const j=S.stack.lastIndexOf(id);if(j>=0)S.stack.splice(j,1)}S.bag[id]-=n;if(S.bag[id]<=0)delete S.bag[id];return true}
+function hud(){$('#coins').textContent='🪙 '+S.coins;$('#daypill').textContent='☀️ Day '+S.day}
+let toastT;function toast(t,ms=2200){const e=$('#toast');e.innerHTML=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),ms)}
+function burst(x,y,e,n=6){for(let i=0;i<n;i++)parts.push({x,y,e,vx:rnd(-60,60),vy:rnd(-160,-80),life:1.2})}
+
+// sound
+let AC;function beep(notes){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();let t=AC.currentTime;notes.forEach(([f,d])=>{const o=AC.createOscillator(),g=AC.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d);t+=d*.8})}catch(e){}}
+const SND={yay:()=>beep([[660,.12],[880,.12],[1175,.25]]),pop:()=>beep([[520,.08],[780,.12]]),oops:()=>beep([[400,.15],[300,.25]]),coin:()=>beep([[988,.08],[1319,.2]])};
+
+// ---------- DAYS ----------
+function todayKey(){const d=new Date();return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()}
+function randomReq(){const r=Math.random();if(r<.5)return pick(['orange','yuzu']);if(r<.75)return pick(['butterfly','ladybug','caterpillar','snail','ant','cricket','bee']);return pick(['fish','tropical','crab','shrimp'])}
+function newDay(force){const k=todayKey();if(!force&&S.dayKey===k)return false;let missed=1;if(S.dayKey&&!force)missed=Math.max(1,Math.round((new Date(k)-new Date(S.dayKey))/864e5));
+ S.dayKey=k;S.day++;S.trees=TREES.map(()=>3);S.yuzu=0;
+ NEIGH.forEach(n=>{const s=S.neigh[n.id];s.req=randomReq();s.done=false;s.talked=false});
+ const pool=BUYABLE.slice().sort(()=>Math.random()-.5);S.stock=pool.slice(0,4);
+ const add=Math.min(3-S.presents.length,Math.min(missed,3));for(let i=0;i<add;i++)S.presents.push(rnd(0,Math.PI*2));
+ bugs=[];for(let i=0;i<4;i++)spawnBug();save();return true}
+
+// ---------- BUGS ----------
+function grassSpot(){for(let i=0;i<50;i++){const x=rnd(180,1220),y=rnd(170,960);if(norm(x,y,GRX,GRY)<.85&&dist(x,y,HOUSE.x,HOUSE.y-40)>90&&dist(x,y,SHOP.x,SHOP.y-40)>90&&dist(x,y,SPRING.x,SPRING.y)>110)return{x,y}}return{x:700,y:600}}
+function spawnBug(){const t=weighted('bug'),p=grassSpot();bugs.push({t,x:p.x,y:p.y,vx:0,vy:0,ch:0,flee:0,ph:rnd(0,6)})}
+
+// ---------- INPUT ----------
+const cam={x:P.x,y:P.y};
+function toWorld(sx,sy){return{x:(sx-W/2)/SCALE+cam.x,y:(sy-H/2)/SCALE+cam.y}}
+cv.addEventListener('pointerdown',ev=>{if(busy)return;if(talking){closeTalk();}if(P.soak)leaveSpring();const w=toWorld(ev.clientX,ev.clientY);tapWorld(w.x,w.y)});
+function tapWorld(x,y){
+ for(const b of bugs)if(dist(x,y,b.x,b.y-10)<34){P.act={k:'bug',b};return}
+ for(let i=0;i<S.presents.length;i++){const p=presentPos(i);if(dist(x,y,p.x,p.y-12)<34){P.act={k:'present',i};setT(p.x,p.y+8);return}}
+ for(const n of NEIGH)if(dist(x,y,n.x,n.y-22)<38){P.act={k:'talk',n};return}
+ {const sx=(x-SPRING.x)/(SPRING.rx+30),sy=(y-SPRING.y)/(SPRING.ry+26);if(sx*sx+sy*sy<1){P.act={k:'spring'};setT(SPRING.x-SPRING.rx-16,SPRING.y+6);return}}
+ for(let i=0;i<TREES.length;i++){const t=TREES[i];if(dist(x,y,t.x,t.y-58)<48||dist(x,y,t.x,t.y-15)<22){P.act={k:'tree',i};setT(t.x+(P.x<t.x?-34:34),t.y+6);return}}
+ if(Math.abs(x-HOUSE.x)<66&&y<HOUSE.y+6&&y>HOUSE.y-135){P.act={k:'house'};setT(HOUSE.x,HOUSE.y+22);return}
+ if(Math.abs(x-SHOP.x)<66&&y<SHOP.y+6&&y>SHOP.y-130){P.act={k:'shop'};setT(SHOP.x,SHOP.y+22);return}
+ if(norm(x,y,SRX,SRY)>1){const e=edge(angleOf(x,y),SRX,SRY,.94);P.act={k:'fish'};setT(e.x,e.y);return}
+ P.act=null;setT(x,y)}
+function setT(x,y){if(norm(x,y,SRX,SRY)>.95){const e=edge(angleOf(x,y),SRX,SRY,.95);x=e.x;y=e.y}P.tx=x;P.ty=y}
+function presentPos(i){return edge(S.presents[i],(SRX+GRX)/2+6,(SRY+GRY)/2+6,1)}
+
+// ---------- UPDATE ----------
+function update(dt){time+=dt;
+ const a=P.act;
+ if(a&&a.k==='bug'){if(!bugs.includes(a.b)){P.act=null}else{P.tx=a.b.x+(P.x<a.b.x?-26:26);P.ty=a.b.y+4;if(dist(P.x,P.y,a.b.x,a.b.y)<48){catchBug(a.b);P.act=null}}}
+ else if(a&&a.k==='talk'){P.tx=a.n.x+(P.x<a.n.x?-46:46);P.ty=a.n.y+2;if(dist(P.x,P.y,a.n.x,a.n.y)<58){P.act=null;P.tx=P.x;P.ty=P.y;openTalk(a.n)}}
+ const dx=P.tx-P.x,dy=P.ty-P.y,d=Math.hypot(dx,dy),sp=175;
+ if(d>3){const s=Math.min(d,sp*dt);P.x+=dx/d*s;P.y+=dy/d*s;P.walk+=dt*12;P.moving=true;if(Math.abs(dx)>2)P.face=dx>0?1:-1}
+ else{P.moving=false;if(a&&!['bug','talk'].includes(a.k)){P.act=null;doAct(a)}}
+ NEIGH.forEach((n,i)=>{if(talking===n){n.face=P.x>n.x?1:-1;return}const joins=P.soak&&S.neigh[n.id].f>=3;
+  if(joins){n.tx=SOAK[i].x;n.ty=SOAK[i].y}else if(n.soak){n.soak=false;n.tx=n.hx;n.ty=n.hy;n.wait=rnd(1,3)}
+  const ddx=n.tx-n.x,ddy=n.ty-n.y,dd=Math.hypot(ddx,ddy);if(dd>2){const s=Math.min(dd,(joins?70:38)*dt);n.x+=ddx/dd*s;n.y+=ddy/dd*s;if(Math.abs(ddx)>1)n.face=ddx>0?1:-1}else if(joins){n.soak=true;n.face=-1}else if((n.wait-=dt)<0){n.wait=rnd(2,6);n.tx=n.hx+rnd(-80,80);n.ty=n.hy+rnd(-50,50)}});
+ if(P.soak&&S.soakDay!==S.dayKey){const want=NEIGH.filter(n=>S.neigh[n.id].f>=3),inn=want.filter(n=>n.soak);if(want.length&&inn.length===want.length){S.soakDay=S.dayKey;inn.forEach(n=>friend(n,1));SND.yay();openSpring(`Ahhh... ♨️ ${inn.map(n=>n.n).join(' and ')} came to soak with you! 💕 What a happy day!`);save()}}
+ bugs.forEach(b=>{const it=ITEMS[b.t];b.ph+=dt;if((b.ch-=dt)<0){b.ch=rnd(1,3);const sp=it.fly?40:12,ang=rnd(0,6.28);b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp}
+  if(b.flee>0){b.flee-=dt;const ex=b.x-P.x,ey=b.y-P.y,el=Math.hypot(ex,ey)||1;b.vx=ex/el*110;b.vy=ey/el*110}
+  const nx=b.x+b.vx*dt,ny=b.y+b.vy*dt;if(norm(nx,ny,GRX,GRY)<.9){b.x=nx;b.y=ny}else{b.vx*=-1;b.vy*=-1}});
+ if((bugTimer-=dt)<0){bugTimer=10;if(bugs.length<5)spawnBug()}
+ TREES.forEach(t=>t.shake=Math.max(0,t.shake-dt));
+ parts=parts.filter(p=>(p.life-=dt)>0);parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt});
+ cam.x+=(P.x-cam.x)*Math.min(1,dt*6);cam.y+=(P.y-40+(talking?120/SCALE:0)-cam.y)*Math.min(1,dt*6);
+ const hw=W/2/SCALE,hh=H/2/SCALE;cam.x=Math.max(hw-60,Math.min(1460-hw,cam.x));cam.y=Math.max(hh-60,Math.min(1180-hh,cam.y));
+}
+
+// ---------- ACTIONS ----------
+function doAct(a){
+ if(a.k==='tree'){const t=TREES[a.i];t.shake=.6;const n=S.trees[a.i];if(n>0){S.trees[a.i]=0;const first=addItem(t.f,n);burst(t.x,t.y-60,ITEMS[t.f].e,n+2);SND.pop();const h=S.stack.length;toast(`You picked ${n} ${ITEMS[t.f].n}! ${ITEMS[t.f].e}`+(first?'<br>✨ New in your book!':'')+(h>=12?`<br>WOW! ${h} fruit on your head! 🤣`:h>=6?`<br>You're balancing ${h} fruit on your head! 😆`:''));save()}else toast('No fruit left. It will grow back tomorrow! 🌙')}
+ else if(a.k==='present'){const p=presentPos(a.i);S.presents.splice(a.i,1);openPresent(p);save()}
+ else if(a.k==='house')openHouse();
+ else if(a.k==='shop')openShop();
+ else if(a.k==='fish')startFish();
+ else if(a.k==='spring')enterSpring();
+}
+function catchBug(b){const it=ITEMS[b.t];if(Math.random()<.85){bugs.splice(bugs.indexOf(b),1);const first=addItem(b.t);burst(b.x,b.y,'✨',6);SND.yay();toast(`You caught a ${it.n}! ${it.e}`+(first?'<br>✨ New in your book!':''));save()}else{b.flee=1.2;SND.oops();toast(`Oh no, the ${it.n} got away! Try again!`)}}
+function openPresent(p){SND.yay();burst(p.x,p.y,'🎉',8);if(Math.random()<.55){const c=pick([100,150,200,250,300]);S.coins+=c;hud();modal(`<h2>🎁 A present!</h2><div style="text-align:center;font-size:60px">🪙</div><p style="text-align:center;font-size:20px;font-weight:800">It was full of coins!<br>+${c} coins</p><div class="row"><button class="btn" onclick="closeModal()">Yay!</button></div>`)}
+ else{const id=Math.random()<.4?pick(PRESENT_ONLY):pick(BUYABLE);const first=addItem(id);modal(`<h2>🎁 A present!</h2><div style="text-align:center;font-size:70px">${ITEMS[id].e}</div><p style="text-align:center;font-size:20px;font-weight:800">You got a ${ITEMS[id].n}!${first?'<br>✨ New in your book!':''}</p><p style="text-align:center">Put it in your house! 🏠</p><div class="row"><button class="btn" onclick="closeModal()">Yay!</button></div>`)}}
+
+// ---------- TALK ----------
+function hearts(f){const full=Math.floor(f/2);let s='';for(let i=0;i<5;i++)s+=i<full?'💗':'🤍';return s}
+function openTalk(n,override){talking=n;const s=S.neigh[n.id];if(!s.talked){s.talked=true;friend(n,1)}
+ const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent=n.e+' '+n.n;const row=T.querySelector('.row');row.innerHTML='';
+ let text=override;
+ if(!text){if(!s.done&&s.req){const it=ITEMS[s.req];text=`Hi ${S.name}! Could you bring me ${it.k==='fruit'?'some':'a'} ${it.n} ${it.e}? That would make me so happy!`}else text=pick(n.lines)}
+ T.querySelector('.tt').innerHTML=text;T.querySelector('.th').textContent='Friendship '+hearts(s.f);
+ if(!s.done&&s.req&&S.bag[s.req]&&!override){const b=document.createElement('button');b.className='btn';b.textContent='Give '+ITEMS[s.req].e;b.onclick=()=>give(n);row.appendChild(b)}
+ const bye=document.createElement('button');bye.className='btn white';bye.textContent='Bye! 👋';bye.onclick=closeTalk;row.appendChild(bye);save()}
+function closeTalk(){talking=null;$('#talk').classList.add('hidden')}
+function friend(n,v){const s=S.neigh[n.id];s.f=Math.min(10,s.f+v);burst(n.x,n.y-40,'💗',4)}
+function give(n){const s=S.neigh[n.id];if(!takeItem(s.req))return;s.done=true;S.coins+=150;hud();friend(n,2);SND.coin();
+ let msg=`Thank you, ${S.name}!! 💕 Here are 150 coins!`;
+ const thr=[4,10];thr.forEach((t,i)=>{const g=n.gifts[i];if(s.f>=t&&!s.g.includes(g)){s.g.push(g);addItem(g);msg+=`<br>And I made you a present because we're friends: ${ITEMS[g].n} ${ITEMS[g].e}!`;SND.yay()}});
+ openTalk(n,msg)}
+
+// ---------- HOT SPRING ----------
+function enterSpring(){P.soak=true;P.x=SPRING.x-28;P.y=SPRING.y+4;P.tx=P.x;P.ty=P.y;P.face=1;SND.pop();burst(P.x,P.y-20,'💦',5);openSpring()}
+function leaveSpring(){P.soak=false;P.x=SPRING.x-SPRING.rx-16;P.y=SPRING.y+6;P.tx=P.x;P.ty=P.y}
+function openSpring(msg){talking='spring';const T=$('#talk');T.classList.remove('hidden');T.querySelector('.tn').textContent='♨️ Hot Spring';const fr=NEIGH.filter(n=>S.neigh[n.id].f>=3);
+ T.querySelector('.tt').innerHTML=msg||(fr.length?`Ahhh... so warm! ${fr.map(n=>n.e+' '+n.n).join(' and ')} ${fr.length>1?'are':'is'} coming to soak with you!`:`Ahhh... so warm! ♨️ Help your friends, and they'll come soak with you.`);
+ T.querySelector('.th').textContent=S.yuzu?`🍋 ${S.yuzu} yuzu floating in the water`:'';const row=T.querySelector('.row');row.innerHTML='';
+ const add=(t,f,c)=>{const b=document.createElement('button');b.className='btn'+(c?' '+c:'');b.textContent=t;b.onclick=f;row.appendChild(b)};
+ if(S.bag.yuzu)add('Toss in a yuzu 🍋',tossYuzu);add('Decorate 🏮',decoSpring);add('Get out',()=>{closeTalk();leaveSpring()},'white')}
+function tossYuzu(){if(!takeItem('yuzu'))return;S.yuzu++;SND.pop();burst(SPRING.x,SPRING.y-10,'💛',4);save();openSpring(pick(['Plop! Now the water smells like yuzu! 🍋','Plop! A cozy yuzu bath! 💛','Splash! Another yuzu for the spring!']))}
+function decoSpring(){modal(`<h2>♨️ Decorate the Hot Spring</h2><p style="text-align:center">Tap a spot to put something there. Tap it again to put it away.</p><div class="grid" style="grid-template-columns:repeat(3,1fr)">${S.spring.map((id,i)=>id?`<div class="cell" onclick="springSlot(${i})">${ITEMS[id].e}<small>${ITEMS[id].n}</small></div>`:`<div class="cell unk" onclick="springSlot(${i})">+</div>`).join('')}</div><div class="row"><button class="btn" onclick="closeModal();if(P.soak)openSpring()">Done</button></div>`)}
+window.springSlot=i=>{const id=S.spring[i];if(id){S.spring[i]=null;addItem(id);SND.pop();save();decoSpring();return}
+ const fk=Object.keys(S.bag).filter(k=>ITEMS[k].k==='furn');if(!fk.length){toast('No furniture in your bag yet! Try the shop 🦝');return}
+ modal(`<h2>What goes here?</h2><div class="grid">${fk.map(k=>`<div class="cell" onclick="placeSpring(${i},'${k}')">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')}</div><div class="row"><button class="btn white" onclick="decoSpring()">Back</button></div>`)};
+window.placeSpring=(i,k)=>{if(!takeItem(k))return;S.spring[i]=k;SND.pop();save();decoSpring()};
+
+// ---------- FISHING ----------
+let F=null;
+function startFish(){busy=true;closeTalk();$('#fish').classList.remove('hidden');fishWait()}
+function fishWait(){clearTimeout(F&&F.t);F={st:'wait'};$('#fmsg').textContent='Wait for the fish to bite...';$('#fbtn').classList.remove('bite');$('#bobber').style.transform='translate(-50%,-50%)';
+ const nib=()=>{if(!F||F.st!=='wait')return;$('#bobber').style.transform='translate(-50%,-40%)';setTimeout(()=>{if(F&&F.st==='wait')$('#bobber').style.transform='translate(-50%,-50%)'},150)};
+ setTimeout(nib,rnd(700,1400));F.t=setTimeout(()=>{F.st='bite';$('#fmsg').textContent='SPLASH! Tap now! 🎣';$('#fbtn').classList.add('bite');$('#bobber').style.transform='translate(-50%,-10%) scale(.8)';beep([[300,.1]]);F.t=setTimeout(()=>{if(F&&F.st==='bite'){F.st='miss';$('#fmsg').textContent='It swam away... try again!';$('#fbtn').classList.remove('bite');F.t=setTimeout(fishWait,1300)}},1600)},rnd(1800,4500))}
+function reel(){if(!F)return;if(F.st==='wait'){clearTimeout(F.t);F.st='early';$('#fmsg').textContent='Too early! Wait for the splash.';SND.oops();F.t=setTimeout(fishWait,1300)}
+ else if(F.st==='bite'){clearTimeout(F.t);F.st='got';const id=weighted('fish'),it=ITEMS[id],first=addItem(id);SND.yay();$('#fbtn').classList.remove('bite');$('#fmsg').innerHTML=`You caught a ${it.n}! ${it.e}`+(first?'<br>✨ New in your book!':'');$('#bobber').textContent=it.e;save();F.t=setTimeout(()=>{$('#bobber').textContent='🔴';fishWait()},1800)}}
+$('#fbtn').onclick=reel;$('#fwater').onclick=reel;
+$('#fcancel').onclick=()=>{clearTimeout(F&&F.t);F=null;busy=false;$('#fish').classList.add('hidden');$('#bobber').textContent='🔴'};
+
+// ---------- MODALS ----------
+function modal(html){busy=true;closeTalk();$('#card').innerHTML=html;$('#modal').classList.remove('hidden')}
+function closeModal(){$('#modal').classList.add('hidden');busy=false}
+window.closeModal=closeModal;
+function bagView(){const keys=Object.keys(S.bag);let h=`<h2>🎒 My Bag</h2>`;if(!keys.length)h+='<p style="text-align:center">Your bag is empty. Pick fruit, catch bugs, and go fishing!</p>';
+ h+='<div class="grid">'+keys.map(k=>`<div class="cell">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')+'</div>';
+ h+='<p style="text-align:center;font-size:14px">Sell things at the shop 🦝 and put furniture in your house 🏠</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>';modal(h)}
+let bookTab='bug';
+function bookView(){const l=ids(bookTab),got=l.filter(i=>S.found[i]).length;const tab=(k,t)=>`<button class="btn ${bookTab===k?'':'off'}" onclick="bookTab='${k}';bookView()">${t}</button>`;
+ let h=`<h2>📖 My Collection</h2><div class="tabs">${tab('bug','🦋 Bugs')}${tab('fish','🐟 Fish')}${tab('furn','🛋️ Furniture')}${tab('fruit','🍎 Fruit')}</div><p style="text-align:center;font-weight:900;margin:4px 0 10px">${got} / ${l.length} found${got===l.length?' 🏆 All done!':''}</p><div class="grid">`;
+ h+=l.map(i=>S.found[i]?`<div class="cell">${ITEMS[i].e}<small>${ITEMS[i].n}</small></div>`:`<div class="cell unk">?</div>`).join('')+'</div><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>';modal(h)}
+window.bookView=bookView;
+let shopTab='sell';
+function openShop(){closeTalk();const tab=(k,t)=>`<button class="btn ${shopTab===k?'':'off'}" onclick="shopTab='${k}';openShop()">${t}</button>`;
+ let h=`<h2>🦝 Berry's Shop</h2><p style="text-align:center;margin:0 0 10px">"Welcome, ${S.name}! What can I do for you today?"</p><div class="tabs">${tab('sell','Sell 🪙')}${tab('buy','Buy 🛋️')}</div><div class="list">`;
+ if(shopTab==='sell'){const keys=Object.keys(S.bag);if(!keys.length)h+='<p style="text-align:center">You have nothing to sell yet.</p>';
+  h+=keys.map(k=>`<div class="li"><span class="e">${ITEMS[k].e}</span><span class="t">${ITEMS[k].n} ×${S.bag[k]}<small>${ITEMS[k].p} coins each</small></span><button class="btn" onclick="sell('${k}',1)">Sell 1</button>${S.bag[k]>1?`<button class="btn white" onclick="sell('${k}',${S.bag[k]})">All</button>`:''}</div>`).join('')}
+ else{h+='<p style="text-align:center;margin-top:0">New furniture every day!</p>'+S.stock.map(k=>`<div class="li"><span class="e">${ITEMS[k].e}</span><span class="t">${ITEMS[k].n}<small>${ITEMS[k].buy} coins</small></span><button class="btn" ${S.coins<ITEMS[k].buy?'disabled':''} onclick="buy('${k}')">Buy</button></div>`).join('')}
+ h+='</div><div class="row"><button class="btn white" onclick="closeModal()">Bye, Berry! 👋</button></div>';modal(h)}
+window.openShop=openShop;
+window.sell=(k,n)=>{if(!takeItem(k,n))return;S.coins+=ITEMS[k].p*n;SND.coin();hud();save();openShop()};
+window.buy=k=>{if(S.coins<ITEMS[k].buy)return;S.coins-=ITEMS[k].buy;const first=addItem(k);SND.yay();hud();save();openShop();toast(`You bought a ${ITEMS[k].n}! ${ITEMS[k].e}`+(first?'<br>✨ New in your book!':''))};
+
+// ---------- HOUSE ----------
+function openHouse(){busy=true;closeTalk();$('#house').classList.remove('hidden');$('#htitle').textContent=`${S.name}'s House`;drawRoom()}
+function drawRoom(){const f=$('#floor');f.innerHTML='';S.room.forEach((id,i)=>{const d=document.createElement('div');d.className='slot';d.textContent=id?ITEMS[id].e:'';d.onclick=()=>slotTap(i);f.appendChild(d)});
+ const n=S.room.filter(Boolean).length,u=new Set(S.room.filter(Boolean)).size;const stars=n===0?'':n<4?'⭐':n<8?'⭐⭐':n<13?'⭐⭐⭐':u>=12?'⭐⭐⭐⭐⭐':'⭐⭐⭐⭐';$('#score').textContent=n?`Cozy level: ${stars}`:'Your house is empty. Let\'s decorate!'}
+function slotTap(i){const id=S.room[i];if(id){S.room[i]=null;addItem(id);SND.pop();save();drawRoom();return}
+ const fk=Object.keys(S.bag).filter(k=>ITEMS[k].k==='furn');
+ if(!fk.length){modal(`<h2>No furniture yet</h2><p style="text-align:center">Buy furniture at Berry's Shop 🦝, open presents on the beach 🎁, or help your friends!</p><div class="row"><button class="btn" onclick="closeModal();busy=true">OK</button></div>`);return}
+ modal(`<h2>What goes here?</h2><div class="grid">${fk.map(k=>`<div class="cell" onclick="place(${i},'${k}')">${ITEMS[k].e}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')}</div><div class="row"><button class="btn white" onclick="closeModal();busy=true">Never mind</button></div>`)}
+window.place=(i,k)=>{if(!takeItem(k))return;S.room[i]=k;SND.pop();save();closeModal();busy=true;drawRoom()};
+$('#hexit').onclick=()=>{$('#house').classList.add('hidden');busy=false;P.tx=HOUSE.x;P.ty=HOUSE.y+30;P.x=HOUSE.x;P.y=HOUSE.y+24};
+$('#bBag').onclick=()=>{if(!busy||!$('#modal').classList.contains('hidden'))bagView()};
+$('#bBook').onclick=()=>{if(!busy||!$('#modal').classList.contains('hidden'))bookView()};
+$('#bHome').onclick=()=>{if(busy)return;P.act={k:'house'};setT(HOUSE.x,HOUSE.y+22)};
+
+// ---------- DRAW ----------
+function ell(x,y,rx,ry,c){ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill()}
+function emoji(e,x,y,s){ctx.fillStyle='#000';ctx.font=`${s}px ${EMO}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e,x,y)}
+function islandPath(rx,ry,k){ctx.beginPath();for(let i=0;i<=120;i++){const t=i/120*Math.PI*2,p=edge(t,rx,ry,k);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)}ctx.closePath()}
+function drawCapy(x,y,face,moving,walk){ctx.save();ctx.translate(x,y);ell(0,0,24,7,'rgba(0,0,0,.18)');ctx.scale(face,1);const b=moving?Math.abs(Math.sin(walk))*-3:Math.sin(time*2)*.8,l=moving?Math.sin(walk)*4:0;
+ ctx.fillStyle='#d9779f';[[-14,l],[-5,-l],[8,l],[16,-l]].forEach(([lx,o])=>{ctx.fillRect(lx-3,-12+b,7,12+o*.5)});
+ ell(0,-22+b,25,16,'#f39ac0');ell(-4,-18+b,18,9,'#f8b6d3');
+ ell(20,-33+b,15,12,'#f39ac0');ell(28,-30+b,9,9,'#e684ae');ell(33,-32+b,3.2,2.4,'#7a2d4f');
+ ell(21,-37+b,2.6,2.8,'#3a1426');ell(22,-38+b,.9,.9,'#fff');ell(12,-44+b,4,3.2,'#d9779f');ell(19,-29+b,3.8,2.4,'rgba(255,70,140,.55)');
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(-5,-51+b);ctx.lineTo(-5,-39+b);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(4,-45+b);ctx.lineTo(12,-52+b);ctx.lineTo(12,-39+b);ctx.closePath();ctx.fill();ell(4,-45+b,3.2,3.2,'#ff3d96');
+ const st=S.stack,sw=moving?1.6:.5;for(let i=0;i<Math.min(st.length,15);i++){const o=Math.sin(time*3+i*.6)*i*sw*.5;emoji(ITEMS[st[i]].e,20+o,-51+b-i*12,19)}
+ ctx.restore()}
+function drawHouse(x,y){ell(x,y+2,70,12,'rgba(0,0,0,.15)');ctx.fillStyle='#ffc9e0';ctx.fillRect(x-56,y-72,112,72);ctx.fillStyle='#ff6fae';ctx.beginPath();ctx.moveTo(x-68,y-70);ctx.lineTo(x,y-128);ctx.lineTo(x+68,y-70);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#b44f80';ctx.fillRect(x-14,y-40,28,40);ell(x+8,y-20,2.5,2.5,'#ffd84d');ctx.fillStyle='#bfefff';ctx.fillRect(x-46,y-56,24,20);ctx.fillRect(x+22,y-56,24,20);emoji('💗',x,y-92,22);if(S.name){ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const t=S.name+"'s House",w=ctx.measureText(t).width+16;ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(x-w/2,y-150,w,20);ctx.fillStyle='#c2427f';ctx.fillText(t,x,y-140)}}
+function drawShop(x,y){ell(x,y+2,70,12,'rgba(0,0,0,.15)');ctx.fillStyle='#c8f2e2';ctx.fillRect(x-56,y-80,112,80);for(let i=0;i<7;i++){ctx.fillStyle=i%2?'#fff':'#ff8cc6';ctx.beginPath();ctx.moveTo(x-64+i*18.3,y-82);ctx.lineTo(x-64+(i+1)*18.3,y-82);ctx.lineTo(x-64+(i+1)*18.3,y-64);ctx.arc(x-64+(i+.5)*18.3,y-64,9.15,0,Math.PI);ctx.closePath();ctx.fill()}
+ ctx.fillStyle='#ff8cc6';ctx.fillRect(x-40,y-112,80,28);ctx.fillStyle='#fff';ctx.font='bold 17px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SHOP',x,y-98);ctx.fillStyle='#8fd8f5';ctx.fillRect(x-44,y-50,50,34);emoji('🦝',x-19,y-32,26);ctx.fillStyle='#6b8f80';ctx.fillRect(x+16,y-44,24,44)}
+function drawSpring(){const{x,y,rx,ry}=SPRING;ell(x,y+5,rx+22,ry+16,'rgba(0,0,0,.1)');
+ for(let i=0;i<24;i++){const a=i/24*Math.PI*2;ell(x+Math.cos(a)*(rx+8),y+Math.sin(a)*(ry+7),13,9,i%2?'#b9b0a8':'#d3cac1')}
+ ell(x,y,rx,ry,'#6fd2cc');ell(x,y-3,rx-10,ry-8,'#98e8e2');
+ for(let i=0;i<Math.min(S.yuzu,12);i++){const a=i*2.4+time*.15,r=.3+((i*37)%10)/18;emoji('🍋',x+Math.cos(a)*rx*r*.8,y+Math.sin(a)*ry*r*.7,14)}
+ for(let i=0;i<6;i++){const ph=(time*.3+i/6)%1;ell(x-40+i*16+Math.sin(time+i)*6,y-12-ph*70,7+ph*12,5+ph*9,`rgba(255,255,255,${(.55*(1-ph)).toFixed(2)})`)}
+ ell(x+rx+34,y+4,8,3,'rgba(0,0,0,.15)');ctx.fillStyle='#a8744a';ctx.fillRect(x+rx+32,y-26,4,30);ctx.fillStyle='#fff';ctx.fillRect(x+rx+20,y-40,28,20);emoji('♨️',x+rx+34,y-30,16)}
+function drawTree(t,i){const sx=t.shake>0?Math.sin(t.shake*50)*4:0;ell(t.x,t.y+2,34,9,'rgba(0,0,0,.15)');ctx.fillStyle='#96603a';ctx.fillRect(t.x-7,t.y-34,14,34);const x=t.x+sx,y=t.y-62;ell(x-22,y+8,26,24,'#4fb35f');ell(x+22,y+8,26,24,'#4fb35f');ell(x,y-6,34,30,'#5fc46e');ell(x-8,y-14,14,10,'#7ad487');
+ const n=S.trees[i];[[-18,6],[16,2],[0,-14]].slice(0,n).forEach(([ox,oy])=>emoji(ITEMS[t.f].e,x+ox,y+oy,20))}
+function drawNeighbor(n){const s=S.neigh[n.id],moving=Math.hypot(n.tx-n.x,n.ty-n.y)>2,b=moving?-Math.abs(Math.sin(time*9))*4:Math.sin(time*2+n.hx)*1.5;
+ if(n.soak){ctx.save();ctx.beginPath();ctx.rect(n.x-40,n.y-120,80,118);ctx.clip();ctx.translate(n.x,n.y);ctx.scale(-n.face,1);emoji(n.e,0,-8+Math.sin(time*2+n.hx),38);ctx.restore();ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(n.x,n.y-2,20,5,0,0,Math.PI*2);ctx.stroke();return}
+ ell(n.x,n.y,20,6,'rgba(0,0,0,.18)');ctx.save();ctx.translate(n.x,n.y);ctx.scale(-n.face,1);emoji(n.e,0,-22+b,42);ctx.restore();
+ if(!s.done&&s.req){ell(n.x+22,n.y-60,13,13,'#fff');emoji('❗',n.x+22,n.y-60,16)}
+ ctx.font='bold 12px sans-serif';ctx.textAlign='center';const w=ctx.measureText(n.n).width+12;ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(n.x-w/2,n.y+6,w,16);ctx.fillStyle='#c2427f';ctx.textBaseline='middle';ctx.fillText(n.n,n.x,n.y+14)}
+function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#7fd3f0';ctx.fillRect(0,0,W,H);
+ ctx.setTransform(DPR*SCALE,0,0,DPR*SCALE,DPR*(W/2-cam.x*SCALE),DPR*(H/2-cam.y*SCALE));
+ ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=3;for(let i=0;i<60;i++){const wx=((i*173)%1700)-150+Math.sin(time*.6+i)*14,wy=((i*97)%1400)-150;ctx.beginPath();ctx.arc(wx,wy,10,Math.PI*1.15,Math.PI*1.85);ctx.stroke()}
+ ctx.fillStyle='rgba(255,255,255,.6)';islandPath(SRX,SRY,1.03+Math.sin(time*1.5)*.006);ctx.fill();
+ ctx.fillStyle='#f9e4b7';islandPath(SRX,SRY,1);ctx.fill();ctx.fillStyle='#8fd96f';islandPath(GRX,GRY,1);ctx.fill();ctx.fillStyle='#9fe07e';islandPath(GRX,GRY,.9);ctx.fill();
+ FLOWERS.forEach(f=>{if(f.g){ctx.strokeStyle='#6cbf55';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(f.x-4,f.y);ctx.lineTo(f.x-6,f.y-7);ctx.moveTo(f.x,f.y);ctx.lineTo(f.x,f.y-9);ctx.moveTo(f.x+4,f.y);ctx.lineTo(f.x+6,f.y-7);ctx.stroke()}else{for(let k=0;k<5;k++){const a=k*1.2566;ell(f.x+Math.cos(a)*3.5,f.y+Math.sin(a)*3.5,3,3,f.c)}ell(f.x,f.y,2.2,2.2,'#ffd84d')}});
+ drawSpring();
+ S.presents.forEach((a,i)=>{const p=presentPos(i);ell(p.x,p.y+2,14,4,'rgba(0,0,0,.15)');emoji('🎁',p.x,p.y-12+Math.sin(time*3+i)*2,28);if(Math.sin(time*4+i)>.7)emoji('✨',p.x+14,p.y-26,12)});
+ const ents=[];TREES.forEach((t,i)=>ents.push([t.y,()=>drawTree(t,i)]));ents.push([HOUSE.y,()=>drawHouse(HOUSE.x,HOUSE.y)]);ents.push([SHOP.y,()=>drawShop(SHOP.x,SHOP.y)]);NEIGH.forEach(n=>ents.push([n.y,()=>drawNeighbor(n)]));ents.push([P.y,()=>{if(P.soak){ctx.save();ctx.beginPath();ctx.rect(P.x-80,P.y-400,160,398);ctx.clip();drawCapy(P.x,P.y+17,P.face,false,0);ctx.restore();ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(P.x+6,P.y-1,30,6,0,0,Math.PI*2);ctx.stroke()}else drawCapy(P.x,P.y,P.face,P.moving,P.walk)}]);
+ S.spring.forEach((id,i)=>{if(id){const d=decoPos(i);ents.push([d.y,()=>{ell(d.x,d.y+2,14,4,'rgba(0,0,0,.15)');emoji(ITEMS[id].e,d.x,d.y-14,30)}])}});
+ bugs.forEach(b=>ents.push([b.y,()=>{const it=ITEMS[b.t],h=it.fly?14+Math.sin(b.ph*4)*4:4;ell(b.x,b.y,7,2.5,'rgba(0,0,0,.15)');ctx.save();ctx.translate(b.x,b.y-h);if(b.vx>0)ctx.scale(-1,1);emoji(it.e,0,-6,it.fly?24:20);ctx.restore()}]));
+ ents.sort((a,b)=>a[0]-b[0]).forEach(e=>e[1]());
+ if(P.moving&&!P.act){ctx.strokeStyle='rgba(255,95,168,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(P.tx,P.ty,10,4,0,0,Math.PI*2);ctx.stroke()}
+ parts.forEach(p=>{ctx.globalAlpha=Math.min(1,p.life);emoji(p.e,p.x,p.y,18);ctx.globalAlpha=1})}
+let last=performance.now();function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);render();requestAnimationFrame(loop)}
+
+// ---------- START ----------
+function welcome(){modal(`<h2>🌸 Welcome to Capy Island! 🌸</h2><div style="text-align:center;font-size:54px">🏝️</div><p style="text-align:center;font-weight:700">You're a little pink capybara with your very own island! What's your name?</p><input class="name" id="nm" maxlength="12" value="Emi"><p style="font-size:15px;line-height:1.5">👆 Tap anywhere to walk.<br>🍊 Tap trees to pick fruit. It stacks on your head!<br>🦋 Tap bugs to catch them.<br>🌊 Tap the water to go fishing.<br>🐰 Tap your friends to say hi!<br>♨️ Tap the hot spring to relax.</p><div class="row"><button class="btn" id="go">Let's play! 🩷</button></div>`);
+ $('#go').onclick=()=>{S.name=($('#nm').value.trim()||'Emi').slice(0,12);closeModal();newDay(true);hud();save();toast('Look! There are presents on the beach! 🎁',3500)}}
+if(new URLSearchParams(location.search).has('newday')){S.dayKey='';}
+hud();
+if(!S.name)welcome();
+else{if(newDay()){hud();setTimeout(()=>toast(`Good morning, ${S.name}! 🌞<br>The fruit grew back and your friends need help!`,4000),300)}else{for(let i=0;i<4;i++)spawnBug()}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else if(S.name&&newDay()){hud();toast(`Good morning, ${S.name}! 🌞 A new day on Capy Island!`,3500)}});
+setInterval(save,5000);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
