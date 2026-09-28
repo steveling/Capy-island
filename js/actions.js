@@ -129,62 +129,65 @@ function hearts(f) {
   for (let i = 0; i < 5; i++) s += i < full ? '💗' : '🤍';
   return s;
 }
-function openTalk(n, override) {
+// talk window buttons: [label, onclick, extra class]
+function talkButtons(btns) {
+  const row = $('#talk .row');
+  row.innerHTML = '';
+  for (const [t, f, c] of btns) {
+    const b = document.createElement('button');
+    b.className = 'btn' + (c ? ' ' + c : '');
+    b.textContent = t;
+    b.onclick = f;
+    row.appendChild(b);
+  }
+}
+// what a neighbour says (js/dialogue.js): `line` is { text, joke? }; `again` means "tell me more"
+function openTalk(n, override, again) {
   voice(n.id);
+  talking = n;
+  const T = $('#talk');
+  T.classList.remove('hidden');
+  T.querySelector('.tn').textContent = n.e + ' ' + n.n;
+  const more = () => openTalk(n, null, true),
+    bye = ['Bye! 👋', closeTalk, 'white'];
   if (VIS()) {
-    talking = n;
-    const T = $('#talk');
-    T.classList.remove('hidden');
-    T.querySelector('.tn').textContent = n.e + ' ' + n.n;
-    T.querySelector('.tt').innerHTML = pick(
-      [
-        `Hi ${esc(S.name)}! Welcome to ${hostName()}'s island! 🌸`,
-        `Yay, a visitor! Hi ${esc(S.name)}! 💕`
-      ].concat(n.lines)
-    );
+    const l = nbVisitLine(n);
+    T.querySelector('.tt').innerHTML = l.text;
     T.querySelector('.th').textContent = '';
-    const row = T.querySelector('.row');
-    row.innerHTML = '';
-    const bye = document.createElement('button');
-    bye.className = 'btn white';
-    bye.textContent = 'Bye! 👋';
-    bye.onclick = closeTalk;
-    row.appendChild(bye);
+    talkButtons(l.joke ? [['Tell me! 🤔', () => punchline(n, l.joke)], bye] : [['More! 💬', more], bye]);
     return;
   }
-  talking = n;
   const s = S.neigh[n.id];
   if (!s.talked) {
     s.talked = true;
     friend(n, 1);
   }
-  const T = $('#talk');
-  T.classList.remove('hidden');
-  T.querySelector('.tn').textContent = n.e + ' ' + n.n;
-  const row = T.querySelector('.row');
-  row.innerHTML = '';
-  let text = override;
-  if (!text) {
-    if (!s.done && s.req) {
-      const it = ITEMS[s.req];
-      text = `Hi ${esc(S.name)}! Could you bring me ${it.k === 'fruit' ? 'some' : 'a'} ${it.n} ${it.e}? That would make me so happy!`;
-    } else text = pick(n.lines);
-  }
-  T.querySelector('.tt').innerHTML = text;
+  const l = override ? { text: override } : again ? nbLine(n) : nbGreeting(n);
+  T.querySelector('.tt').innerHTML = l.text;
   T.querySelector('.th').textContent = 'Friendship ' + hearts(s.f);
-  if (!s.done && s.req && S.bag[s.req] && !override) {
-    const b = document.createElement('button');
-    b.className = 'btn';
-    b.textContent = 'Give ' + ITEMS[s.req].e;
-    b.onclick = () => give(n);
-    row.appendChild(b);
-  }
-  const bye = document.createElement('button');
-  bye.className = 'btn white';
-  bye.textContent = 'Bye! 👋';
-  bye.onclick = closeTalk;
-  row.appendChild(bye);
+  const btns = [];
+  if (!s.done && s.req && S.bag[s.req] && !override) btns.push(['Give ' + ITEMS[s.req].e, () => give(n)]);
+  btns.push(
+    l.joke ? ['Tell me! 🤔', () => punchline(n, l.joke)] : ['More! 💬', more, btns.length ? 'white' : '']
+  );
+  btns.push(bye);
+  talkButtons(btns);
   save();
+}
+function punchline(n, ans) {
+  if (talking !== n) return;
+  voice(n.id);
+  $('#talk .tt').innerHTML = ans + ' ' + pick(['Hee hee!', 'Hahaha!', '😆', 'Get it?!']);
+  SND.pop();
+  burst(n.x, n.y - 50, '😆', 3);
+  const s = !VIS() && S.neigh[n.id],
+    btns = [];
+  if (s && !s.done && s.req && S.bag[s.req]) btns.push(['Give ' + ITEMS[s.req].e, () => give(n)]);
+  btns.push(
+    ['More! 💬', () => openTalk(n, null, true), btns.length ? 'white' : ''],
+    ['Bye! 👋', closeTalk, 'white']
+  );
+  talkButtons(btns);
 }
 function closeTalk() {
   talking = null;
@@ -213,7 +216,7 @@ function give(n) {
   hud();
   friend(n, 2);
   SND.coin();
-  let msg = `Thank you, ${esc(S.name)}!! 💕 Here are 150 coins!`;
+  let msg = `${nbThanks(n)}<br>Here are 150 coins! 🪙`;
   const thr = [4, 10];
   thr.forEach((t, i) => {
     const g = n.gifts[i];

@@ -641,7 +641,7 @@ window.flyToFriend = id => {
   MP.newFriend = null;
   clTrack();
   modal(
-    `<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Flying to <b>${esc(nm)}</b>'s island...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`
+    `<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">${CRAFTS[myCraft()].e}</div></div><p class="c" style="font-size:18px">Flying to <b>${esc(nm)}</b>'s island...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`
   );
   clFlyTo(id, nm);
 };

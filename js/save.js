@@ -45,7 +45,7 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
-const NEWS_V = 7;
+const NEWS_V = 8;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 function newSave() {
   const neigh = {};
@@ -75,6 +75,8 @@ function newSave() {
     color: 'pink',
     acc: 'bow',
     accs: { bow: 1, flower: 1, yuzuhat: 1, none: 1 },
+    craft: 'pink', // my plane at the Capy Air dock (js/hangar.js)
+    crafts: { pink: 1 },
     mu: {},
     muGift: 0,
     muWing: {},
@@ -148,6 +150,10 @@ let v4news = false;
   )
     S.emotes = d.emotes.slice();
   if (!ACCS[S.acc] || !S.accs[S.acc]) S.acc = 'bow';
+  if (!S.crafts || typeof S.crafts !== 'object' || Array.isArray(S.crafts)) S.crafts = {};
+  for (const k in S.crafts) if (!CRAFTS[k]) delete S.crafts[k];
+  S.crafts.pink = 1;
+  if (!CRAFTS[S.craft] || !S.crafts[S.craft]) S.craft = 'pink';
   NEIGH.forEach(n => {
     if (S.neigh[n.id].f >= 7) S.accs[NEIGH_ACC[n.id]] = 1;
   });

@@ -75,6 +75,7 @@ function cleanIsland(i) {
     }),
     color: cleanColor(i.color),
     acc: cleanAcc(i.acc),
+    craft: CRAFTS[i.craft] ? i.craft : 'pink', // their plane at the dock (js/hangar.js)
     // the inside of their house: only sent to best friends; anything that isn't furniture is dropped
     room: Array.isArray(i.room) ? Array.from({ length: 20 }, (_, k) => furn(i.room[k])) : null,
     // their drawing board, also best friends only: exactly 768 hex digits, or '' for blank
@@ -95,7 +96,8 @@ function snapshot(friend) {
     mu: Object.keys(S.mu),
     gd: S.garden.map(p => (p ? [p.s, p.c, p.st] : 0)),
     color: myColor(),
-    acc: myAcc()
+    acc: myAcc(),
+    craft: myCraft()
   };
   if (friend) {
     s.room = S.room.slice();
@@ -609,7 +611,7 @@ window.visitFriend = code => {
   MP.code = code;
   MP.newFriend = null;
   modal(
-    `<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">🛩️</div></div><p class="c" style="font-size:18px">Flying to island <b>${code}</b>...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`
+    `<h2>✈️ Flying...</h2><div style="text-align:center;font-size:64px"><div class="fly">${CRAFTS[myCraft()].e}</div></div><p class="c" style="font-size:18px">Flying to island <b>${code}</b>...</p><div class="row"><button class="btn white" onclick="cancelVisit()">Cancel</button></div>`
   );
   if (CL.ready) {
     clTrack();
@@ -1035,7 +1037,8 @@ window.openDock = (view, prefill) => {
   let h = '<h2>✈️ Capy Air</h2>';
   const hn = hostName();
   MP.dockArg = prefill === undefined ? null : prefill;
-  if (view === 'guestbook') {
+  if (view === 'hangar' && !VIS()) h += hangarHtml();
+  else if (view === 'guestbook') {
     const gb = S.guestbook;
     h +=
       `<h3>📝 My Guestbook</h3>` +
@@ -1131,11 +1134,12 @@ window.openDock = (view, prefill) => {
       (netOK() ? '' : `<p class="note">${OFFLINE_MSG}</p>`) +
       `<button class="btn big" ${netOK() ? '' : 'disabled'} onclick="openIsland()">Open my island 🏝️</button><button class="btn big" ${netOK() ? '' : 'disabled'} onclick="openDock('visit')">Visit a friend ✈️</button>${CL.on ? `<button class="btn big" onclick="openDock('friends')">💕 Best friends${CL.friends.length ? ' (' + CL.friends.length + ')' : ''}</button>` : ''}
   <h3>My color</h3><div class="sws">${COLOR_ORDER.map(k => `<button class="sw ${myColor() === k ? 'on' : ''}" title="${CAPY[k].n}" style="background:${CAPY[k].b}" onclick="setVColor('${k}')"></button>`).join('')}</div><p class="c" style="font-size:13px;margin:6px 0 0">You're a ${CAPY[myColor()].n.toLowerCase()} capybara, at home and when you visit! 🪞 More looks at the mirror in your house.</p>
-  <div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="closeModal()">Bye! 👋</button></div>`;
+  <div class="row"><button class="btn white" onclick="openDock('guestbook')">📝 Guestbook (${S.guestbook.length})</button><button class="btn white" onclick="openDock('hangar')">🛠️ My planes</button></div><div class="row"><button class="btn white" onclick="closeModal()">Bye! 👋</button></div>`;
   }
   modal(h);
   MP.dockOpen = true;
   MP.dockView = view;
+  if (view === 'hangar') hangarStart();
   const inp = $('#vcode');
   if (inp) {
     inp.oninput = () => {
