@@ -334,13 +334,27 @@ function clApplyInbox() {
   refreshDock();
 }
 
+// "Played yesterday" etc. for the best-friends list
+function friendSeen(f) {
+  if (f.online) return '🟢 Playing now!';
+  const d = f.days;
+  if (d === null || d === undefined) return '💤 Not playing. Visit their island!';
+  return `💤 Played ${d === 0 ? 'today' : d === 1 ? 'yesterday' : d < 7 ? d + ' days ago' : 'over a week ago'}. Visit their island!`;
+}
 async function clFriendsRefresh() {
   if (!CL.ready) return CL.friends;
   try {
     const r = await clRpc('list_friends');
     CL.friends = (Array.isArray(r) ? r : [])
       .filter(f => f && UUID_RE.test(f.friend))
-      .map(f => ({ id: f.friend, name: cleanName(f.name), color: cleanColor(f.color), online: !!f.online }));
+      .map(f => ({
+        id: f.friend,
+        name: cleanName(f.name),
+        color: cleanColor(f.color),
+        online: !!f.online,
+        // whole days since they last played (null if hidden by their grown-ups, or not known)
+        days: Number.isInteger(f.last_days) && f.last_days >= 0 ? f.last_days : null
+      }));
     CL.frT = Date.now();
     CL.meta.friends = CL.friends.map(f => ({ id: f.id, name: f.name, color: f.color }));
     clMetaSave();
