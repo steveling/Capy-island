@@ -1065,7 +1065,7 @@ window.openDock = (view, prefill) => {
           fr
             .map(
               f =>
-                `<div class="li"><span class="t"><span class="dot" style="background:${CAPY[f.color].b}"></span>${esc(f.name)}<small>${f.online ? '🟢 Playing now!' : '💤 Not playing. Visit their island!'}</small></span><button class="btn" ${CL.ready ? '' : 'disabled'} onclick="flyToFriend('${f.id}')">Fly ✈️</button><button class="btn white" aria-label="Remove friend" onclick="openDock('unfriend','${f.id}')">✖</button></div>`
+                `<div class="li"><span class="t"><span class="dot" style="background:${CAPY[f.color].b}"></span>${esc(f.name)}<small>${friendSeen(f)}</small></span><button class="btn" ${CL.ready ? '' : 'disabled'} onclick="flyToFriend('${f.id}')">Fly ✈️</button><button class="btn white" aria-label="Remove friend" onclick="openDock('unfriend','${f.id}')">✖</button></div>`
             )
             .join('') +
           '</div>'
