@@ -507,6 +507,18 @@ function showNews(next) {
 // has seen (S.news), newest first, once, after any secret-emoji prompt and the museum news
 const WHATS_NEW = [
   [
+    8,
+    '🚁',
+    'New planes!',
+    'Save up coins and get a fancy new plane or a helicopter at the seaplane dock! Tap ✈️, then 🛠️ My planes.'
+  ],
+  [
+    8,
+    '🐰',
+    'Chatty neighbours',
+    'Mochi, Pip and Puddle have lots more to say, and they know some very silly jokes! 😆'
+  ],
+  [
     7,
     '💕',
     'Make new friends',

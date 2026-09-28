@@ -557,6 +557,14 @@ const ACCS = {
   crown: { n: 'Capy Crown', h: 'Finish a whole museum room 🏆' },
   none: { n: 'Nothing' }
 };
+// planes and helicopters at the Capy Air dock (js/hangar.js); p = price in coins
+const CRAFTS = {
+  pink: { n: 'Pink Seaplane', e: '🛩️', p: 0, d: 'The classic! Pink, cozy and very huggable.' },
+  sunny: { n: 'Sunny Seaplane', e: '🛩️', p: 600, d: 'Bright yellow, like a flying lemon! 🍋' },
+  biplane: { n: 'Rainbow Biplane', e: '🛩️', p: 1500, d: 'Two wings and every color of the rainbow! 🌈' },
+  copter: { n: 'Bubble Copter', e: '🚁', p: 3000, d: 'Whirly blades and a big bubble window! 🫧' },
+  jet: { n: 'Starlight Jet', e: '✈️', p: 5000, d: 'Super fast and super sparkly! ✨' }
+};
 const NEIGH_ACC = { mochi: 'leaf', pip: 'shades', puddle: 'sailor' };
 const BASE_COLORS = ['pink', 'caramel', 'cocoa', 'cream', 'lavender', 'mint', 'sky', 'peach'];
 const COLOR_ORDER = [

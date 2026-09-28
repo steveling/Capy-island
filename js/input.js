@@ -164,6 +164,7 @@ function update(dt) {
       doAct(a);
     }
   }
+  nbPops(dt); // neighbours' little speech bubbles (js/dialogue.js)
   const vis = ONV();
   NEIGH.forEach((n, i) => {
     if (vis && !MP.offline) {

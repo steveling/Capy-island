@@ -789,6 +789,10 @@ function drawNeighbor(n) {
       emoji('❗', n.x + 22, n.y - 60 + bb, 16);
     }
   }
+  if (n.say && time - n.say.t < SAY_T && n !== talking) {
+    const mark = !ONV() && !S.neigh[n.id].done && S.neigh[n.id].req; // clear of the ❗
+    sayBubble(n.x, n.y - (mark ? 76 : 50), n.say.x, time - n.say.t);
+  }
   ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'center';
   const w = ctx.measureText(n.n).width + 12;
@@ -884,78 +888,4 @@ function drawSign() {
     );
     emoji('✨', x + 44, y - 92 + Math.sin(time * 3) * 2, 12);
   }
-}
-function drawPlane() {
-  const x = PLANE.x,
-    y = PLANE.y,
-    b = Math.sin(time * 1.4) * 1.6,
-    Y = y + b;
-  ell(x + 6, y + 5, 60, 10, 'rgba(20,70,120,.2)');
-  ctx.strokeStyle = 'rgba(255,255,255,.6)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(x, y + 2, 56 + Math.sin(time * 2) * 3, 8, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  const pont = (yy, a) => {
-    rr(x - 46, yy - 8, 84, 9, 4.5);
-    ctx.fillStyle = a ? '#dfe8f2' : vgrad(yy - 8, yy + 1, '#ffffff', '#cfdbe8');
-    ctx.fill();
-  };
-  pont(Y - 6, 1);
-  ctx.strokeStyle = '#b8b8cc';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x - 20, Y - 4);
-  ctx.lineTo(x - 16, Y - 24);
-  ctx.moveTo(x + 14, Y - 4);
-  ctx.lineTo(x + 10, Y - 24);
-  ctx.stroke();
-  poly(
-    [
-      [x + 28, Y - 40],
-      [x + 50, Y - 66],
-      [x + 60, Y - 64],
-      [x + 52, Y - 34]
-    ],
-    '#f06aa8'
-  );
-  poly(
-    [
-      [x + 30, Y - 38],
-      [x + 50, Y - 62],
-      [x + 55, Y - 61],
-      [x + 46, Y - 38]
-    ],
-    '#ff9ccb'
-  );
-  emoji('💗', x + 50, Y - 52, 11);
-  const g = ctx.createRadialGradient(x - 14, Y - 46, 3, x, Y - 32, 46);
-  g.addColorStop(0, '#ffd1e6');
-  g.addColorStop(0.55, '#ff8cc6');
-  g.addColorStop(1, '#d9559a');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(x, Y - 32, 46, 15, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.beginPath();
-  ctx.ellipse(x + 4, Y - 29, 40, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  [-10, 4, 18].forEach(wx => {
-    ell(x + wx, Y - 38, 4.5, 4.5, '#fff');
-    ell(x + wx, Y - 38, 3.2, 3.2, '#8fd3f0');
-    ell(x + wx - 1, Y - 39, 1.1, 1.1, '#fff');
-  });
-  ell(x - 30, Y - 41, 8, 6, '#bfefff');
-  ell(x - 32, Y - 43, 3, 2, '#fff');
-  ell(x - 2, Y - 50, 42, 5, 'rgba(150,30,80,.25)');
-  const wg = ctx.createLinearGradient(0, Y - 58, 0, Y - 49);
-  wg.addColorStop(0, '#ffe4f1');
-  wg.addColorStop(1, '#ff9fcf');
-  ctx.fillStyle = wg;
-  rr(x - 44, Y - 58, 84, 8, 4);
-  ctx.fill();
-  ell(x - 48, Y - 32, 4, 5, '#ffd84d');
-  ell(x - 49, Y - 32, 3, 18 * Math.abs(Math.cos(time * 25)) + 3, 'rgba(110,70,90,.45)');
-  pont(Y + 2, 0);
 }
