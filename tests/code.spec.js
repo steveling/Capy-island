@@ -96,3 +96,31 @@ test('a broken saved code is dropped', async ({ game }) => {
   expect(await page.evaluate(() => S.code)).toBe('');
   expect(await openAndWait(page)).toMatch(/^[A-Z0-9]{5}$/);
 });
+
+test('grown-ups can make a new code', async ({ game }) => {
+  const page = game.page;
+  const code = await openAndWait(page);
+  await closeAndWait(page);
+  await page.evaluate(() => {
+    busy = false;
+    grownups();
+  });
+  await page.getByRole('button', { name: '🔄 New island code' }).click();
+  await expect(page.locator('#card .note')).toContainText("The old code won't work any more");
+  expect(await page.evaluate(() => S.code)).toBe('');
+  await page.evaluate(() => closeModal());
+  const fresh = await openAndWait(page);
+  expect(fresh).not.toBe(code);
+});
+
+test('not while the island is open', async ({ game }) => {
+  const page = game.page;
+  const code = await openAndWait(page);
+  await page.evaluate(() => {
+    busy = false;
+    grownups();
+  });
+  await page.getByRole('button', { name: '🔄 New island code' }).click();
+  await expect(page.locator('#card .note')).toContainText('close your island first');
+  expect(await page.evaluate(() => S.code)).toBe(code);
+});

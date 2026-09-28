@@ -154,3 +154,30 @@ test('ending the visit closes a waiting question', async ({ game, newPhone }) =>
   await expect.poll(async () => (await rpcs(cat)).map(r => r[0])).toContain('close_island');
   expect(await cat.evaluate(() => FR.out)).toBe(null);
 });
+
+test('grown-ups can ask the cloud for a new island code', async ({ page, game }) => {
+  await fakeCloud(page, { rpc: { ...online, new_island_code: null } });
+  await game.open(cloud);
+  await game.newPlayer('Ada', '🦄');
+  await page.waitForFunction(() => CL.ready);
+  await page.evaluate(() => {
+    busy = false;
+    grownups();
+  });
+  await page.getByRole('button', { name: '🔄 New island code' }).click();
+  await expect(page.locator('#card .note').first()).toContainText("The old code won't work any more");
+  expect((await rpcs(page)).map(r => r[0])).toContain('new_island_code');
+});
+
+test("if the cloud can't make a new code, grown-ups are told", async ({ page, game }) => {
+  await fakeCloud(page, { rpc: online });
+  await game.open(cloud);
+  await game.newPlayer('Ada', '🦄');
+  await page.waitForFunction(() => CL.ready);
+  await page.evaluate(() => {
+    busy = false;
+    grownups();
+  });
+  await page.getByRole('button', { name: '🔄 New island code' }).click();
+  await expect(page.locator('#card .note').first()).toContainText("Couldn't make a new code");
+});

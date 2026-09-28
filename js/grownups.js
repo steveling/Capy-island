@@ -52,7 +52,8 @@ function grownups(msg) {
  <button class="btn big" onclick="saveBackup()">💾 Save backup file</button><button class="btn big white" onclick="copyBackup()">📋 Copy backup code</button><div id="bkcode"></div>
  <h3>Restore a backup</h3><div class="row" style="margin-top:0"><label class="btn white">📂 Choose file<input type="file" id="bkfile" accept=".json,application/json,text/plain" style="display:none"></label></div>
  <p class="c" style="font-size:14px;margin:10px 0 4px">…or paste a backup code:</p><textarea class="bk" id="bkpaste" placeholder="Paste backup code here"></textarea><div class="row"><button class="btn white" onclick="restoreText(document.getElementById('bkpaste').value)">Restore from code</button></div>
- ${plPanelHtml()}${CL.on ? clPanelHtml() : ''}<p class="c" style="font-size:12px;color:#b0487c">Capy Island v4 · save key ${KEY}</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`);
+ ${plPanelHtml()}${CL.on ? clPanelHtml() : ''}
+ <h3>🔑 Island code</h3><p class="c" style="font-size:14px;margin-top:0">Friends use the same code every time. If it got shared with someone it shouldn't, make a new one.</p><div class="row" style="margin-top:0"><button class="btn white" onclick="newIslandCode()">🔄 New island code</button></div><p class="c" style="font-size:12px;color:#b0487c">Capy Island v4 · save key ${KEY}</p><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`);
   $('#bkfile').onchange = e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -67,6 +68,20 @@ function grownups(msg) {
   };
   if (CL.on) clPanelWire();
 }
+// forget this island's code (the old one stops working); the next time it opens it gets a new one
+window.newIslandCode = async () => {
+  if (MP.role) return grownups('Please finish visiting / close your island first. ✈️');
+  if (CL.on)
+    try {
+      if (!CL.ready) throw 0;
+      await clRpc('new_island_code');
+    } catch (e) {
+      return grownups("😕 Couldn't make a new code right now. Check the internet and try again.");
+    }
+  S.code = '';
+  save();
+  grownups("🔑 Done! The old code won't work any more. Your island gets a new one next time it opens.");
+};
 window.saveBackup = async () => {
   const json = JSON.stringify(backupObj(), null, 1),
     name = backupName();
