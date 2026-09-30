@@ -281,6 +281,7 @@ async function clHeartbeat() {
     await clRpc('touch_island', { p_dropins: CL.dropins });
   } catch (e) {}
   clPullInbox();
+  clPullMail(); // js/mail.js
 }
 
 // presents / guestbook stamps friends left while we were away
@@ -703,6 +704,7 @@ async function clFlyTo(fid, nm) {
   }
   // 2) live: private pipe visit:<friend>:<me>, then knock on their lobby until they answer with a snapshot
   const conn = new CloudConn('visit:' + fid + ':' + CL.uid, 'host');
+  conn.fid = fid; // whose island (for their mailbox, js/mail.js)
   MP.conn = conn;
   const toSnap = () => {
     if (MP.conn !== conn || !going()) return;

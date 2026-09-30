@@ -422,6 +422,246 @@ input.name {
   font-size: 38px;
   border: 1px dashed rgba(217, 112, 159, 0.25);
 }
+/* ----- rooms and the backyard (js/home.js) ----- */
+#htabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0 0 6px;
+  max-width: min(440px, 96vw);
+}
+#htabs button {
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  color: #b0487c;
+  background: #fff;
+  border: 3px solid #ffc0dc;
+  border-radius: 14px;
+  padding: 5px 9px;
+}
+#htabs button.on {
+  background: #ff8cc6;
+  border-color: #e56aa8;
+  color: #fff;
+}
+#htabs button.locked {
+  opacity: 0.7;
+  border-style: dashed;
+}
+.wallbtn {
+  font: inherit;
+  font-weight: 900;
+  font-size: 16px;
+  color: #b0487c;
+  background: #fff;
+  border: 3px solid #ff8cc6;
+  border-radius: 16px;
+  padding: 6px 12px;
+  margin: 0 12px;
+  box-shadow: 0 3px 0 #e56aa8;
+}
+#room {
+  transition: filter 0.6s;
+}
+#room.r-bed #wall {
+  background: repeating-linear-gradient(90deg, #d8cdfb 0 18px, #e6defd 18px 36px);
+  border-bottom-color: #a18fdc;
+}
+#room.r-bed #floor {
+  background: repeating-conic-gradient(#f3efff 0 25%, #e4dcff 0 50%) 0 0/25% 33.33%;
+}
+#room.r-kitchen #wall {
+  background: repeating-linear-gradient(90deg, #fff4c9 0 18px, #fffae3 18px 36px);
+  border-bottom-color: #e8c25a;
+}
+#room.r-kitchen #floor {
+  background: repeating-conic-gradient(#ffffff 0 25%, #e9f6ff 0 50%) 0 0/20% 25%;
+}
+#room.r-yard {
+  border-color: #7fcf8a;
+}
+#room.r-yard #wall {
+  background: linear-gradient(#9fdcff, #d4f1ff);
+  border-bottom: 10px solid;
+  border-image: repeating-linear-gradient(90deg, #fff 0 10px, #e9d6c0 10px 14px) 10;
+}
+#room.r-yard #floor {
+  background: repeating-linear-gradient(135deg, #9fe3a0 0 22px, #aeeaae 22px 44px);
+}
+#room.r-yard .slot {
+  border-color: rgba(60, 140, 70, 0.18);
+}
+#room.editing .slot > * {
+  display: inline-block;
+  animation: jiggle 0.35s infinite alternate;
+}
+@keyframes jiggle {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+#room.napping,
+#room.starry {
+  filter: brightness(0.45) saturate(0.7);
+}
+#floor .slot {
+  position: relative;
+}
+.slot .puff {
+  position: absolute;
+  bottom: 40%;
+  font-size: 18px;
+  pointer-events: none;
+  animation: puff 1.2s ease-out forwards;
+}
+@keyframes puff {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-70px) scale(1.2);
+  }
+}
+.slot.a-wiggle > :first-child {
+  animation: a-wiggle 0.5s 2;
+}
+.slot.a-bounce > :first-child {
+  animation: a-bounce 0.45s 2;
+}
+.slot.a-spin > :first-child {
+  animation: a-spin 0.9s;
+}
+.slot.a-float > :first-child {
+  animation: a-float 1s;
+}
+.slot.a-zoom > :first-child {
+  animation: a-zoom 0.9s;
+}
+@keyframes a-wiggle {
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes a-bounce {
+  50% {
+    transform: translateY(-14px) scale(1.1, 0.92);
+  }
+}
+@keyframes a-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes a-float {
+  50% {
+    transform: translateY(-22px);
+  }
+}
+@keyframes a-zoom {
+  40% {
+    transform: translateX(26px) rotate(10deg);
+  }
+  70% {
+    transform: translateX(-16px);
+  }
+}
+.need span {
+  display: inline-block;
+  margin-right: 4px;
+}
+.need .miss {
+  opacity: 0.45;
+}
+/* ----- the mailbox (js/mail.js) ----- */
+.list .li.new {
+  border-color: #ff8cc6;
+  background: #fff4fa;
+}
+.list .li[onclick] {
+  cursor: pointer;
+}
+.stks {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.stks button,
+.notes button {
+  font: inherit;
+  background: #fff;
+  border: 3px solid #ffd0e6;
+  border-radius: 14px;
+}
+.stks button {
+  font-size: 22px;
+  padding: 2px 0;
+}
+.notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.notes button {
+  font-weight: 800;
+  font-size: 12.5px;
+  line-height: 1.2;
+  color: #b0487c;
+  padding: 5px 4px;
+}
+.stks button.on,
+.notes button.on,
+.grid .cell.on {
+  border-color: #ff5fa8;
+  background: #ffe3ef;
+  box-shadow: 0 0 0 2px #ff8cc6;
+}
+.letter {
+  position: relative;
+  background: repeating-linear-gradient(#fffdf6 0 30px, #f3e3d3 30px 31px);
+  border: 3px solid #f2c9a8;
+  border-radius: 14px;
+  padding: 14px 18px 12px;
+  font-weight: 800;
+  color: #7a3b5a;
+  font-size: 17px;
+}
+.letter p {
+  margin: 4px 0 8px;
+}
+.letter .note {
+  font-size: 21px;
+  color: #d94b90;
+  text-align: center;
+}
+.letter .sig {
+  text-align: right;
+}
+.letter .stk {
+  position: absolute;
+  top: -16px;
+  right: -8px;
+  font-size: 44px;
+  transform: rotate(12deg);
+}
+.letter .gift {
+  text-align: center;
+  font-size: 48px;
+  line-height: 1.1;
+}
+.letter .gift small {
+  display: block;
+  font-size: 14px;
+}
 #score {
   margin-top: 10px;
   font-weight: 900;

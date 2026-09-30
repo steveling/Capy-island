@@ -1,4 +1,4 @@
-// Modal dialogs: bag, book, shop, and the house.
+// Modal dialogs: bag, book and shop.
 'use strict';
 
 // ---------- MODALS ----------
@@ -28,7 +28,9 @@ const BAG_ORDER = [
   'star',
   'flower',
   'seed',
-  'furn'
+  'food',
+  'furn',
+  'yard'
 ];
 function bagView() {
   const keys = Object.keys(S.bag)
@@ -42,7 +44,7 @@ function bagView() {
     keys
       .map(
         k =>
-          `<div class="cell">${ie(k)}<small>${ITEMS[k].n}</small><span class="cnt">${ITEMS[k].k === 'tool' ? '' : S.bag[k]}</span></div>`
+          `<div class="cell"${ITEMS[k].k === 'food' && !VIS() ? ` onclick="eatAsk('${k}')"` : ''}>${ie(k)}<small>${ITEMS[k].n}</small><span class="cnt">${ITEMS[k].k === 'tool' ? '' : S.bag[k]}</span></div>`
       )
       .join('') +
     '</div>';
@@ -156,85 +158,6 @@ window.buy = k => {
   );
 };
 
-// ---------- HOUSE ----------
-// my house, or (while visiting a best friend) theirs to look around (#5)
-const houseGuest = () => ONV() && !!MP.island.room;
-function openHouse() {
-  const guest = houseGuest();
-  if (VIS() && !guest) return;
-  busy = true;
-  closeTalk();
-  const h = $('#house');
-  h.classList.remove('hidden');
-  h.classList.toggle('guest', guest);
-  $('#htitle').textContent = `${guest ? MP.island.name : S.name}'s House`;
-  $('#house .hint').textContent = guest
-    ? `You're visiting! Tap things to see what they are. 🏠`
-    : 'Tap a square to put furniture there. Tap furniture to put it away.';
-  drawRoom();
-}
-function drawRoom() {
-  const guest = houseGuest(),
-    room = guest ? MP.island.room : S.room,
-    f = $('#floor');
-  f.innerHTML = '';
-  room.forEach((id, i) => {
-    const d = document.createElement('div');
-    d.className = 'slot';
-    d.innerHTML = id ? ie(id) : '';
-    d.onclick = () => (guest ? id && toast(`${ie(id)} ${esc(ITEMS[id].n)}`, 1800) : slotTap(i));
-    f.appendChild(d);
-  });
-  const n = room.filter(Boolean).length,
-    u = new Set(room.filter(Boolean)).size;
-  const stars =
-    n === 0 ? '' : n < 4 ? '⭐' : n < 8 ? '⭐⭐' : n < 13 ? '⭐⭐⭐' : u >= 12 ? '⭐⭐⭐⭐⭐' : '⭐⭐⭐⭐';
-  $('#score').textContent = n
-    ? `Cozy level: ${stars}`
-    : guest
-      ? `${MP.island.name}'s house is empty right now!`
-      : "Your house is empty. Let's decorate!";
-}
-function slotTap(i) {
-  if (VIS()) return;
-  const id = S.room[i];
-  if (id) {
-    S.room[i] = null;
-    addItem(id);
-    SND.lift();
-    save();
-    drawRoom();
-    return;
-  }
-  const fk = Object.keys(S.bag).filter(placeable);
-  if (!fk.length) {
-    modal(
-      `<h2>No furniture yet</h2><p style="text-align:center">Buy furniture at Berry's Shop 🦝, open presents on the beach 🎁, or help your friends!</p><div class="row"><button class="btn" onclick="closeModal();busy=true">OK</button></div>`
-    );
-    return;
-  }
-  modal(
-    `<h2>What goes here?</h2><div class="grid">${fk.map(k => `<div class="cell" onclick="place(${i},'${k}')">${ie(k)}<small>${ITEMS[k].n}</small><span class="cnt">${S.bag[k]}</span></div>`).join('')}</div><div class="row"><button class="btn white" onclick="closeModal();busy=true">Never mind</button></div>`
-  );
-}
-window.place = (i, k) => {
-  if (VIS() || !takeItem(k)) return;
-  S.room[i] = k;
-  SND.thunk();
-  save();
-  closeModal();
-  busy = true;
-  drawRoom();
-};
-$('#hexit').onclick = () => {
-  $('#house').classList.add('hidden');
-  $('#house').classList.remove('guest');
-  busy = false;
-  P.tx = HOUSE.x;
-  P.ty = HOUSE.y + 30;
-  P.x = HOUSE.x;
-  P.y = HOUSE.y + 24;
-};
 $('#who').onclick = () => {
   if (!busy) openPlayers();
 };

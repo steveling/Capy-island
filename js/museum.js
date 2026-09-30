@@ -507,6 +507,24 @@ function showNews(next) {
 // has seen (S.news), newest first, once, after any secret-emoji prompt and the museum news
 const WHATS_NEW = [
   [
+    9,
+    '📬',
+    'A mailbox!',
+    'Send letters with stickers and a gift from your bag to best friends and other players on this phone. The flag goes up when you have mail!'
+  ],
+  [
+    9,
+    '🌳',
+    'Your own backyard',
+    'Tap your house, then 🌳 Backyard. Get a puppy, a chicken, a Ferris wheel and more at the 🛒 Garden shop, then tap them to play!'
+  ],
+  [
+    9,
+    '🛏️',
+    'Bedroom and kitchen',
+    'Build new rooms! Nap in your bedroom, and bake yummy treats in the kitchen to share with your neighbours. 🥧'
+  ],
+  [
     8,
     '🚁',
     'New planes!',

@@ -4,6 +4,9 @@ const { test, expect, pickSecret } = require('./fixtures');
 const KEY = 'capyIsland.v2';
 const ready = page => page.waitForFunction(() => typeof loop === 'function' && islReady);
 const TITLES = [
+  'A mailbox!',
+  'Your own backyard',
+  'Bedroom and kitchen',
   'New planes!',
   'Chatty neighbours',
   'Make new friends',
@@ -96,9 +99,13 @@ test('a very old island sees the museum news first, then this', async ({ page, g
 test('an island that saw the last splash only gets the new card', async ({ page, game }) => {
   await game.open();
   await game.newPlayer('Ada', '🦄');
-  await comeBack(page, s => (s.news = 7));
+  await comeBack(page, s => (s.news = 8));
   await expect(page.locator('#card h2')).toHaveText('🎉 New on Capy Island!');
-  await expect(page.locator('.news .nw b')).toHaveText(['New planes!', 'Chatty neighbours']);
+  await expect(page.locator('.news .nw b')).toHaveText([
+    'A mailbox!',
+    'Your own backyard',
+    'Bedroom and kitchen'
+  ]);
   await page.getByRole('button', { name: "Let's play! 🩷" }).click();
-  expect(await page.evaluate(() => S.news)).toBe(8);
+  expect(await page.evaluate(() => S.news)).toBe(9);
 });

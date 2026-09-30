@@ -265,6 +265,10 @@ function nbContext(n) {
   else out.push(`Your museum has ${mu} thing${mu === 1 ? '' : 's'} now! The owl must be so proud! 🏛️`);
   if (S.coins >= 2000)
     out.push(`${S.coins} coins?! You could buy something really fancy at the seaplane dock! ✈️`);
+  if (S.mail && S.mail.some(m => !m.read)) out.push("Psst! Your mailbox flag is up! You've got mail! 📬");
+  if (S.yard && S.yard.some(k => k === 'puppy' || k === 'kitty'))
+    out.push('I saw your pet in the backyard! So cute! Can I pet it? 🐾');
+  if (S.built && S.built.kitchen) out.push('Something smells yummy from your kitchen! Are you baking? 🥧');
   if (S.yuzu) out.push('Did you put yuzu in the hot spring? It smells like lemonade! 🍋');
   if (S.board && /[1-9a-f]/.test(S.board))
     out.push("I saw your drawing on the board! It's a masterpiece! 🎨");
