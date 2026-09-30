@@ -138,7 +138,18 @@ test('grown-ups can switch it off', async ({ game, newPhone }) => {
 test('island-code visits have no friend requests, and the host drops them', async ({ game, newPhone }) => {
   const { ada, ben, cat } = await party(game, newPhone, { link: false });
   expect(await cat.evaluate(id => canAsk(id), BEN)).toBe(false);
+  // Ben walks onto open grass first: visitors land at a random spot by the Capy Air sign, and a tap there
+  // would open Capy Air instead (a tap on a player only stops there when it's a friend request)
+  await ben.evaluate(() => {
+    P.x = P.tx = 820;
+    P.y = P.ty = 560;
+  });
+  await cat.waitForFunction(
+    id => Math.hypot(MP.players.get(id).x - 820, MP.players.get(id).y - 560) < 2,
+    BEN
+  );
   await tapOn(cat, BEN);
+  await cat.waitForTimeout(1500); // long enough to walk over and open anything the tap had hit
   await expect(cat.locator('#modal')).toBeHidden();
   // even a modified phone's request isn't passed on
   await cat.evaluate(id => MP.conn.send({ t: 'freq', to: id, code: 'CATCD' }), BEN);
