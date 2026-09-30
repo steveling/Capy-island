@@ -167,6 +167,8 @@ function openTalk(n, override, again) {
   T.querySelector('.th').textContent = 'Friendship ' + hearts(s.f);
   const btns = [];
   if (!s.done && s.req && S.bag[s.req] && !override) btns.push(['Give ' + ITEMS[s.req].e, () => give(n)]);
+  const tr = !override && treatFor(n); // js/home.js
+  if (tr) btns.push(['Share ' + ITEMS[tr].e, () => shareTreat(n), 'white']);
   btns.push(
     l.joke ? ['Tell me! 🤔', () => punchline(n, l.joke)] : ['More! 💬', more, btns.length ? 'white' : '']
   );

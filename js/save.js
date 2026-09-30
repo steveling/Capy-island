@@ -45,7 +45,7 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
-const NEWS_V = 8;
+const NEWS_V = 9;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 function newSave() {
   const neigh = {};
@@ -62,6 +62,12 @@ function newSave() {
     neigh,
     stock: [],
     room: Array(20).fill(null),
+    // more of the house (js/home.js): rooms built with coins, the backyard, and today's one-a-day things
+    rooms: { bed: Array(20).fill(null), kitchen: Array(20).fill(null) },
+    built: {},
+    yard: Array(20).fill(null),
+    once: {},
+    mail: [], // letters in my mailbox (js/mail.js)
     x: 700,
     y: 490,
     stack: [],
@@ -118,6 +124,37 @@ let v4news = false;
     if (!Array.isArray(S[k])) S[k] = [];
   });
   if (!Array.isArray(S.room)) S.room = d.room;
+  {
+    const kind = k => ITEMS[k] && ITEMS[k].k,
+      indoor = k => ['furn', 'art'].includes(kind(k)),
+      outdoor = k => indoor(k) || kind(k) === 'yard',
+      slots = (a, ok) => Array.from({ length: 20 }, (_, i) => (Array.isArray(a) && ok(a[i]) ? a[i] : null)),
+      obj = v => v && typeof v === 'object' && !Array.isArray(v);
+    const r = obj(S.rooms) ? S.rooms : {};
+    S.rooms = { bed: slots(r.bed, indoor), kitchen: slots(r.kitchen, indoor) };
+    S.yard = slots(S.yard, outdoor);
+    const b = obj(S.built) ? S.built : {};
+    S.built = {};
+    ROOMS.forEach(x => x.p && b[x.id] && (S.built[x.id] = 1));
+    const o = obj(S.once) ? S.once : {};
+    S.once = {};
+    for (const k in o) if (/^[a-z0-9_]{1,24}$/.test(k) && Number.isInteger(o[k])) S.once[k] = o[k];
+    const int = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : 0);
+    S.mail = (Array.isArray(S.mail) ? S.mail : [])
+      .filter(m => obj(m) && typeof m.from === 'string')
+      .slice(-40)
+      .map(m => ({
+        id: String(m.id || '').slice(0, 40),
+        from: m.from.slice(0, 12),
+        c: CAPY[m.c] ? m.c : 'caramel',
+        item: mailable(m.item) ? m.item : null,
+        note: int(m.note, MAIL_NOTES.length),
+        st: int(m.st, MAIL_STICKERS.length),
+        at: Number.isFinite(m.at) ? m.at : 0,
+        read: !!m.read,
+        took: !!m.took
+      }));
+  }
   if (!Array.isArray(S.spring)) S.spring = d.spring;
   if (!Array.isArray(S.trees) || S.trees.length !== TREES.length) S.trees = d.trees;
   if (!CAPY[S.vcolor]) S.vcolor = 'caramel';

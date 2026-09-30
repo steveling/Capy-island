@@ -45,7 +45,8 @@ const cleanColor = v => (CAPY[v] ? v : 'caramel');
 const cleanStack = v => (Array.isArray(v) ? v.filter(x => x === 'orange' || x === 'yuzu').slice(0, 15) : []);
 function cleanIsland(i) {
   i = i || {};
-  const furn = x => (placeable(x) ? x : null);
+  const furn = x => (placeable(x) ? x : null),
+    obj = v => v && typeof v === 'object' && !Array.isArray(v);
   return {
     name: cleanName(i.name),
     day: num(i.day, 1, 0, 1e6),
@@ -78,6 +79,20 @@ function cleanIsland(i) {
     craft: CRAFTS[i.craft] ? i.craft : 'pink', // their plane at the dock (js/hangar.js)
     // the inside of their house: only sent to best friends; anything that isn't furniture is dropped
     room: Array.isArray(i.room) ? Array.from({ length: 20 }, (_, k) => furn(i.room[k])) : null,
+    // their other rooms and backyard (js/home.js), best friends only like the living room
+    rooms: obj(i.rooms)
+      ? Object.fromEntries(
+          ['bed', 'kitchen']
+            .filter(r => Array.isArray(i.rooms[r]))
+            .map(r => [r, Array.from({ length: 20 }, (_, k) => furn(i.rooms[r][k]))])
+        )
+      : null,
+    yard: Array.isArray(i.yard)
+      ? Array.from(
+          { length: 20 },
+          (_, k) => furn(i.yard[k]) || (ITEMS[i.yard[k]] && ITEMS[i.yard[k]].k === 'yard' ? i.yard[k] : null)
+        )
+      : null,
     // their drawing board, also best friends only: exactly 768 hex digits, or '' for blank
     bd: cleanBoard(i.bd)
   };
@@ -101,6 +116,9 @@ function snapshot(friend) {
   };
   if (friend) {
     s.room = S.room.slice();
+    s.rooms = {};
+    for (const r in S.rooms) if (S.built[r]) s.rooms[r] = S.rooms[r].slice();
+    s.yard = S.yard.slice();
     s.bd = S.board || ''; // the drawing board (js/board.js)
   }
   return s;
@@ -501,6 +519,8 @@ function hostConn(conn) {
       } catch (e) {}
       toast(`🎁 ${esc(v.name)} left you a present!<br>It will be on your beach tomorrow.`, 3500);
     } else if (d.t === 'chat') chatFromVisitor(v, d);
+    else if (d.t === 'mail')
+      mailFromVisitor(v, d); // js/mail.js
     else if (d.t === 'freq' || d.t === 'fres') befriendRelay(v, d);
     else if (d.t === 'bye') dropVisitor(v.id, 'left');
   });

@@ -647,6 +647,11 @@ function tapV4(x, y) {
       }
     }
   }
+  if (mailHit(x, y)) {
+    P.act = { k: 'mail' };
+    setT(MAILBOX.x + 26, MAILBOX.y + 8);
+    return true;
+  }
   if (boardHit(x, y)) {
     P.act = { k: 'board' };
     setT(BOARD.x - 24, BOARD.y + 20);
@@ -697,6 +702,9 @@ function actV4(a) {
       return true;
     case 'board':
       boardAct();
+      return true;
+    case 'mail':
+      openMailbox(); // js/mail.js
       return true;
   }
   return false;
@@ -998,6 +1006,7 @@ function drawV4Ground() {
 function pushV4(ents) {
   ents.push([MUSEUM.y, drawMuseum]);
   ents.push([BOARD.y, drawBoard]);
+  ents.push([MAILBOX.y, drawMailbox]);
   ents.push([ANNEX.y - 1, drawAnnex]);
   GARDEN.forEach((g, i) => ents.push([g.y, () => drawPlot(i)]));
   if (!ONV()) {

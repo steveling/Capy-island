@@ -652,6 +652,69 @@ const PIGEON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110"><ellipse cx="48" cy="105" rx="28" ry="4.5" fill="rgba(80,30,70,.22)"/><path d="M20 76L5 90l18-3z" fill="#7d8fb3"/><ellipse cx="46" cy="72" rx="32" ry="28" fill="#a9b8d8"/><path d="M26 64q14-10 34 4q-12 18-32 14z" fill="#8d9dc2"/><path d="M34 72h16M34 77h14" stroke="#6f7ea6" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="60" cy="50" rx="17" ry="14" fill="#7fd6c2"/><ellipse cx="62" cy="54" rx="14" ry="8" fill="#b18cf0" opacity=".7"/><circle cx="64" cy="34" r="17" fill="#b9c6e2"/><ellipse cx="62" cy="19" rx="18" ry="7" fill="#e83e7e" transform="rotate(-12 62 19)"/><ellipse cx="58" cy="17" rx="8" ry="2.5" fill="#ff7fb0" transform="rotate(-12 58 17)"/><circle cx="60" cy="10" r="3" fill="#e83e7e"/><circle cx="70" cy="32" r="5" fill="#fff"/><circle cx="71" cy="32" r="3" fill="#ff7a3d"/><circle cx="71.5" cy="32" r="1.5" fill="#2a1a2e"/><path d="M78 36l12 3-12 3z" fill="#f2c14e"/><ellipse cx="79" cy="35.5" rx="3" ry="2" fill="#fff"/><ellipse cx="66" cy="43" rx="4" ry="2.5" fill="#ff9fcf" opacity=".75"/><path d="M44 58q18-2 28 4l-2 30q-14 6-28 0z" fill="#fff4f8"/><path d="M47 66h23M46 74h24M45 82h25M44 90h24" stroke="#ff8cc6" stroke-width="3"/><path d="M52 62q8-4 16 0" stroke="#e83e7e" stroke-width="2" fill="none"/><path d="M58 80q-5-4-2-7q2-1 2 1q0-2 2-1q3 3-2 7z" fill="#e83e7e"/><path d="M40 98l-2 7M52 98l2 7" stroke="#ff8aa0" stroke-width="3" stroke-linecap="round"/></svg>';
 const FOX_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110"><ellipse cx="50" cy="105" rx="28" ry="4.5" fill="rgba(80,30,70,.22)"/><path d="M28 42L9 3l36 25z" fill="#f2c27b"/><path d="M72 42L91 3 55 28z" fill="#f2c27b"/><path d="M29 35L16 11l24 17z" fill="#ffc7d9"/><path d="M71 35L84 11 60 28z" fill="#ffc7d9"/><path d="M26 70q24-10 48 0l6 34H20z" fill="#8fd3f0"/><circle cx="36" cy="84" r="3.5" fill="#ff5fa8"/><circle cx="60" cy="92" r="3" fill="#ffd84d"/><circle cx="48" cy="78" r="2.5" fill="#5fd3a8"/><circle cx="66" cy="80" r="2.5" fill="#b48cff"/><ellipse cx="50" cy="48" rx="26" ry="22" fill="#f7d193"/><ellipse cx="50" cy="59" rx="15" ry="10" fill="#fff7ea"/><path d="M37 46q4-5 8 0M55 46q4-5 8 0" stroke="#3a2415" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="50" cy="55" rx="4" ry="3" fill="#3a2415"/><path d="M46 61q4 3 8 0" stroke="#3a2415" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="33" cy="55" rx="5" ry="3" fill="#ff9fcf" opacity=".8"/><ellipse cx="67" cy="55" rx="5" ry="3" fill="#ff9fcf" opacity=".8"/><path d="M70 30l14-14" stroke="#b98352" stroke-width="3" stroke-linecap="round"/><path d="M84 16l4-4" stroke="#ff5fa8" stroke-width="4" stroke-linecap="round"/><ellipse cx="80" cy="88" rx="13" ry="9" fill="#e9c28a"/><circle cx="75" cy="85" r="2.2" fill="#ff5fa8"/><circle cx="81" cy="84" r="2.2" fill="#ffd84d"/><circle cx="86" cy="88" r="2.2" fill="#6fb6ff"/><circle cx="78" cy="91" r="2" fill="#5fd3a8"/></svg>';
+// ---------- home: more rooms, the backyard, treats, and mail (js/home.js, js/mail.js) ----------
+// backyard things: [id, emoji, name, price, what tapping it does]
+const YARD = [
+  ['sunflower', '🌻', 'Sunflower Patch', 120, 'water'],
+  ['soccer', '⚽', 'Soccer Ball', 150, 'kick'],
+  ['pumpkin', '🎃', 'Giant Pumpkin', 150, 'boo'],
+  ['snowman', '⛄', 'Snowman', 200, 'hug'],
+  ['umbrella2', '⛱️', 'Beach Umbrella', 250, 'relax'],
+  ['campfire', '🔥', 'Campfire', 300, 'roast'],
+  ['picnic', '🧺', 'Picnic Basket', 300, 'picnic'],
+  ['palm', '🌴', 'Palm Tree', 350, 'shake'],
+  ['hoop', '🏀', 'Ball Hoop', 400, 'hoop'],
+  ['tent', '⛺', 'Camping Tent', 500, 'camp'],
+  ['chicken', '🐔', 'Chicken', 600, 'egg'],
+  ['circus', '🎪', 'Play Tent', 700, 'show'],
+  ['puppy', '🐶', 'Puppy', 800, 'pet'],
+  ['kitty', '🐱', 'Kitty', 800, 'pet'],
+  ['ferris', '🎡', 'Mini Ferris Wheel', 1200, 'ride'],
+  ['coaster', '🎢', 'Toy Coaster', 1500, 'ride']
+];
+YARD.forEach(([id, e, n, buy, act]) => (ITEMS[id] = { e, n, buy, p: Math.round(buy / 4), k: 'yard', act }));
+// treats: baked in the kitchen (and eggs from the chicken); neighbours love them, and they make lovely mail
+Object.assign(ITEMS, {
+  egg: { e: '🥚', n: 'Fresh Egg', p: 20, k: 'food' },
+  mallow: { e: '🍡', n: 'Toasty Mallows', p: 30, k: 'food' },
+  tea: { e: '🍵', n: 'Yuzu Tea', p: 80, k: 'food' },
+  cookie: { e: '🍪', n: 'Sunny Cookies', p: 90, k: 'food' },
+  pie: { e: '🥧', n: 'Orange Pie', p: 120, k: 'food' },
+  pancake: { e: '🥞', n: 'Pancakes', p: 150, k: 'food' },
+  fluffcake: { e: '🎂', n: 'Fluffy Cake', p: 220, k: 'food' }
+});
+const RECIPES = [
+  ['tea', { yuzu: 2 }],
+  ['cookie', { orange: 1, yuzu: 1 }],
+  ['pie', { orange: 3 }],
+  ['pancake', { egg: 2, yuzu: 1 }],
+  ['fluffcake', { egg: 2, orange: 1, yuzu: 1 }]
+];
+// the house: the living room is the one everyone has (S.room); the rest get built with coins
+const ROOMS = [
+  { id: 'living', e: '🛋️', n: 'Living Room', p: 0 },
+  { id: 'bed', e: '🛏️', n: 'Bedroom', p: 800 },
+  { id: 'kitchen', e: '🍳', n: 'Kitchen', p: 1500 },
+  { id: 'yard', e: '🌳', n: 'Backyard', p: 0 }
+];
+// letters: kids pick a note and a sticker (no typing), and can tuck a gift from their bag inside
+const MAIL_NOTES = [
+  'Hi! I miss you! 💕',
+  "You're my best friend! 🌟",
+  'I found this for you! 🎁',
+  'Come visit my island! ✈️',
+  'Thank you so much! 🙏',
+  'Have a happy day! 🌈',
+  "Let's play soon! 🎈",
+  'This made me think of you! 🌸',
+  'A yummy snack for you! 🍪',
+  'Sweet dreams! 🌙',
+  'Hooray for you! 🎉',
+  'Big hugs! 🤗'
+];
+const MAIL_STICKERS = ['💌', '🌸', '⭐', '🐰', '🦆', '🐤', '🍓', '🌈', '🎀', '🐱', '🦋', '🍊'];
+// what can go in a letter: anything from the bag except tools
+const mailable = k => !!ITEMS[k] && ITEMS[k].k !== 'tool';
 const ids = k => Object.keys(ITEMS).filter(i => ITEMS[i].k === k);
 const BUYABLE = ids('furn').filter(i => !ITEMS[i].gift),
   PRESENT_ONLY = ['cupcake', 'doll', 'trophy', 'sparkle', 'pinata', 'crystal', 'ufo'],
@@ -842,6 +905,7 @@ function grassFree(x, y) {
   return (
     !(x > 560 && x < 860 && y > 120 && y < 330) &&
     !(x > 570 && x < 760 && y > 384 && y < 478) &&
-    !(x > 745 && x < 880 && y > 355 && y < 485) // the drawing board (js/board.js)
+    !(x > 745 && x < 880 && y > 355 && y < 485) && // the drawing board (js/board.js)
+    !(x > 370 && x < 420 && y > 350 && y < 430) // the mailbox (js/mail.js)
   );
 }
