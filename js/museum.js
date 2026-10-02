@@ -507,6 +507,18 @@ function showNews(next) {
 // has seen (S.news), newest first, once, after any secret-emoji prompt and the museum news
 const WHATS_NEW = [
   [
+    10,
+    '✏️',
+    'Change your name',
+    'Tap your name at the top, then ✏️ Change my name. Roll the 🎲 for a silly one!'
+  ],
+  [
+    10,
+    '💤',
+    'Visit while they nap',
+    "Visiting a best friend who isn't playing? You can still go inside their house and backyard and see their drawing!"
+  ],
+  [
     9,
     '📬',
     'A mailbox!',

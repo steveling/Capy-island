@@ -10,13 +10,14 @@ const SBJS_SRC = [
 const SBJS_SRI = 'sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function clMetaSave() {
-  if (!CL.on || restoring) return;
+  if (!CL.on || restoring || !tabMine()) return;
   try {
     localStorage.setItem(CMETA, JSON.stringify(CL.meta));
   } catch (e) {}
 }
 function clMetaSet(o) {
   Object.assign(CL.meta, o);
+  if (tabGone) return;
   try {
     localStorage.setItem(CMETA, JSON.stringify(CL.meta));
   } catch (e) {}
@@ -75,7 +76,7 @@ function clBody(ts) {
   return { owner: CL.uid, save: S, snapshot: snapshot(true), save_ts: ts, dropins: CL.dropins };
 }
 async function clUpload(force) {
-  if (!CL.sb || !CL.uid || CL.status === 'moved' || !S.name) return false;
+  if (!CL.sb || !CL.uid || CL.status === 'moved' || !S.name || !tabMine()) return false;
   if (!force && !CL.meta.dirty) return true;
   if (CL.uploading) {
     CL.again = true;

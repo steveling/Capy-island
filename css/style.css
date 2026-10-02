@@ -1736,3 +1736,14 @@ body.kb #chatlog {
   border-color: #d94b90;
   background: #ffe6f1;
 }
+/* another tab is playing (js/save.js) */
+#tabgone {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(90, 30, 70, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
