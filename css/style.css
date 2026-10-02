@@ -1747,3 +1747,64 @@ body.kb #chatlog {
   justify-content: center;
   padding: 16px;
 }
+/* flying between islands: the clouds part (js/clouds.js) */
+#clouds {
+  position: fixed;
+  inset: 0;
+  z-index: 28;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* the sky behind the clouds clears first, then the clouds slide out to the sides */
+#clouds::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#bfe6ff, #eaf6ff);
+  animation: fadeaway 0.8s 0.35s ease-in forwards;
+}
+#clouds.calm::before {
+  background: #f4fbff;
+  animation-duration: 0.6s;
+  animation-delay: 0.1s;
+}
+@keyframes fadeaway {
+  to {
+    opacity: 0;
+  }
+}
+.cpuff {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, #ffffff 0 55%, #eef6ff 72%, #d7e8f7 100%);
+  box-shadow: inset -1.2vmax -1.6vmax 0 rgba(190, 214, 236, 0.55);
+  animation: cloudout 1.3s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+@keyframes cloudout {
+  75% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--dx), var(--dy)) scale(1.2);
+    opacity: 0;
+  }
+}
+.cplane {
+  position: absolute;
+  top: 46%;
+  left: -15%;
+  font-size: 56px;
+  filter: drop-shadow(0 6px 4px rgba(60, 90, 130, 0.25));
+  animation: planezoom 1.6s 0.35s ease-in-out forwards;
+}
+@keyframes planezoom {
+  0% {
+    transform: translate(0, 0) rotate(-6deg);
+  }
+  50% {
+    transform: translate(65vw, -6vh) rotate(4deg);
+  }
+  100% {
+    transform: translate(135vw, -14vh) rotate(-8deg);
+  }
+}

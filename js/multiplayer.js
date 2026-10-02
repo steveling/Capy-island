@@ -840,6 +840,7 @@ function enterVisit(d) {
   $('#museum').classList.add('hidden');
   document.body.classList.remove('inmus');
   closeModal();
+  cloudsPart(); // js/clouds.js
   closeTalk();
   busy = false;
   P.soak = false;
@@ -904,6 +905,7 @@ function returnHome(reason) {
   MP.me = null;
   closeTalk();
   closeModal();
+  cloudsPart();
   $('#museum').classList.add('hidden');
   document.body.classList.remove('inmus');
   $('#house').classList.add('hidden');
