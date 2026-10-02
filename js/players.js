@@ -226,7 +226,7 @@ function openPlayers() {
     })
     .join('');
   modal(
-    `<h2>👥 Who's playing?</h2><div class="plist">${rows}</div><button class="btn big white" onclick="plNewAsk()">➕ New player</button>` +
+    `<h2>👥 Who's playing?</h2><div class="plist">${rows}</div><button class="btn big white" onclick="renameAsk()">✏️ Change my name</button><button class="btn big white" onclick="plNewAsk()">➕ New player</button>` +
       (CL.on ? `<button class="btn big white" onclick="plFromPhone()">📲 From another phone</button>` : '') +
       `<button class="btn big white" onclick="plFromBackup()">💾 From a backup</button><div class="row"><button class="btn" onclick="closeModal()">Close</button></div>`
   );
@@ -334,6 +334,39 @@ window.plClaimNew = async () => {
       JSON.stringify({ uid, localTs: ts, syncedTs: ts, dirty: false, moved: false, friends: [] })
     );
   });
+};
+
+// ----- changing your own name (any player, any time they're at home)
+window.renameAsk = msg => {
+  if (MP.role || VIS()) return toast('Please finish visiting / close your island first. ✈️', 3000);
+  modal(
+    `<h2>✏️ Change my name</h2>${msg ? `<p class="note">${msg}</p>` : ''}<p class="c" style="font-size:17px">What should everyone call you?</p><div class="nmrow"><input class="name" id="rnm" maxlength="12" value="${esc(S.name)}" aria-label="My new name"><button class="btn white" onclick="renameRoll()" aria-label="Pick a fun name" title="Pick a fun name">🎲</button></div><div class="row"><button class="btn" onclick="renameDo(document.getElementById('rnm').value)">Save ✓</button><button class="btn white" onclick="openPlayers()">Back</button></div>`
+  );
+  const i = $('#rnm');
+  i.onkeydown = e => e.key === 'Enter' && renameDo(i.value);
+};
+window.renameRoll = () => {
+  const i = $('#rnm');
+  let n = funName();
+  while (NAMES.length > 1 && n === i.value) n = funName();
+  i.value = n;
+};
+window.renameDo = v => {
+  if (MP.role || VIS()) return;
+  // the same clean-up as everywhere else names show up (cleanName), but empty isn't turned into "Friend"
+  const n = String(v || '')
+    .replace(/[\u0000-\u001f<>&"'`\\]/g, '')
+    .trim()
+    .slice(0, 12);
+  if (!n) return renameAsk('Your name needs at least one letter! 🙂');
+  const old = S.name;
+  S.name = n;
+  save();
+  plSync(); // the players list (and, through the next upload, best friends) see the new name
+  whoUI();
+  SND.yay();
+  closeModal();
+  toast(n === old ? `You're still ${esc(n)}! 💕` : `Hello, ${esc(n)}! 🎉 That's your name now.`, 3000);
 };
 
 // From a backup (any mode): adds a *copy* of the island as a new player; the original keeps going on its own

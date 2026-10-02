@@ -207,3 +207,56 @@ test('island-code visitors only see the outside', async ({ game, newPhone }) => 
     null
   ]);
 });
+
+test('a best friend visiting while you nap can go inside, out to the backyard, and see the drawing', async ({
+  page,
+  game,
+  newPhone
+}) => {
+  const { fakeCloud } = require('./fake-cloud');
+  const { UNLOCK } = require('./fixtures');
+  // Ada's friends-only copy, cleaned the way the server does (clean_snapshot + clean_home)
+  const snap = await page.evaluate(() => {
+    S.room[3] = 'piano';
+    S.built.bed = 1;
+    S.rooms.bed[0] = 'teddy';
+    S.yard[5] = 'puppy';
+    S.board = 'a'.repeat(768);
+    S.crafts.copter = 1;
+    S.craft = 'copter';
+    const s = snapshot(true);
+    return { ...s, v: 2, rooms: { bed: s.rooms.bed } };
+  });
+  const ADA = '22222222-2222-4222-8222-222222222222';
+  const ben = await newPhone();
+  await fakeCloud(ben.page, {
+    rpc: {
+      my_cloud_status: { has_island: true, save_ts: 0 },
+      get_friend_island: { owner: ADA, name: 'Ada', color: 'pink', snapshot: snap, online: false }
+    }
+  });
+  await ben.open({ cloud: true, storage: { [UNLOCK]: '1' } });
+  await ben.newPlayer('Ben', '🚀');
+  await ben.page.waitForFunction(() => CL.ready);
+  await ben.page.evaluate(id => {
+    MP.role = 'connecting';
+    clSnapVisit(id, 'Ada');
+  }, ADA);
+  await ben.page.waitForFunction(() => MP.role === 'visitor' && MP.offline);
+  // the drawing and the plane
+  expect(await ben.page.evaluate(() => [boardShown() && boardShown().length, dockCraft()])).toEqual([
+    768,
+    'copter'
+  ]);
+  // inside: every room Ada has, and the backyard
+  await ben.page.evaluate(() => {
+    busy = false;
+    openHouse();
+  });
+  await expect(ben.page.locator('#htabs button')).toHaveText(['🛋️ Living Room', '🛏️ Bedroom', '🌳 Backyard']);
+  await ben.page.locator('#floor .slot').nth(3).click();
+  await expect(ben.page.locator('#toast')).toContainText('Plink plonk');
+  await tab(ben.page, 'Backyard').click();
+  await ben.page.locator('#floor .slot').nth(5).click();
+  await expect(ben.page.locator('#toast')).toContainText('Woof');
+});

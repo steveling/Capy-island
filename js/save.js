@@ -45,7 +45,7 @@ const ONV = () => MP.role === 'visitor' && !!MP.island; // rendering the HOST's 
 // ---------- SAVE ----------
 const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
-const NEWS_V = 9;
+const NEWS_V = 10;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
 // One tab at a time. Every player's island on this phone shares the browser's storage, and switching player
 // swaps which island sits in the live keys. A second tab still holding the old island in memory would save it
