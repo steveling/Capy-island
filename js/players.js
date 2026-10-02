@@ -65,6 +65,7 @@ PL.list = PL.list
 if (!PL.list.some(p => p.id === PL.active)) PL.active = null;
 const pwTries = {};
 function plWrite() {
+  if (tabGone) return;
   try {
     localStorage.setItem(PL_KEY, JSON.stringify(PL));
   } catch (e) {}

@@ -24,6 +24,11 @@ function gameOn(page) {
             body: "const SUPABASE_URL = '';\nconst SUPABASE_ANON_KEY = '';\n"
           })
         );
+      // the same time of day on every run (midday) unless a test picks one: at night the game pops up
+      // "It's a starry night!", which used to replace whatever message a test was checking
+      await page.addInitScript(() => {
+        if (typeof window.FAKE_HOUR !== 'number') window.FAKE_HOUR = 12;
+      });
       await page.addInitScript(s => {
         if (!location.protocol.startsWith('http')) return; // e.g. about:blank after going back
         if (sessionStorage.getItem('seeded')) return;

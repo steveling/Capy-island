@@ -47,6 +47,52 @@ const KEY = 'capyIsland.v2';
 // the what's-new splash each island has seen (see showWhatsNew); new islands start up to date
 const NEWS_V = 9;
 let restoring = false; // true while an island is being swapped in; blocks saves until the reload
+// One tab at a time. Every player's island on this phone shares the browser's storage, and switching player
+// swaps which island sits in the live keys. A second tab still holding the old island in memory would save it
+// over whoever is live now: that's how one player's island once turned into another's. So the newest tab
+// claims the game, and any other tab freezes (no saving, no cloud) with a button to play there instead.
+const TAB_KEY = 'capyIsland.tab',
+  TAB_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+let tabGone = false;
+function tabClaim() {
+  try {
+    localStorage.setItem(TAB_KEY, TAB_ID);
+  } catch (e) {}
+}
+// is this still the tab that plays? (if not, it freezes now)
+function tabMine() {
+  if (tabGone) return false;
+  let v = null;
+  try {
+    v = localStorage.getItem(TAB_KEY);
+  } catch (e) {
+    return true;
+  }
+  if (v === null || v === TAB_ID) return true;
+  tabFreeze();
+  return false;
+}
+function tabFreeze() {
+  if (tabGone) return;
+  tabGone = true;
+  restoring = true; // blocks every save
+  try {
+    clearTimeout(CL.upT);
+    clearInterval(CL.hbT);
+    if (CL.sb) CL.sb.auth.stopAutoRefresh(); // its sign-in may not be the live one any more
+  } catch (e) {}
+  const d = document.createElement('div');
+  d.id = 'tabgone';
+  d.setAttribute('role', 'alertdialog');
+  d.innerHTML =
+    '<div class="card"><h2>🏝️ Playing in another tab</h2><div style="text-align:center;font-size:54px">🙈</div><p class="c" style="font-size:17px">Capy Island is open in another tab or window. To keep everyone\'s island safe, only one can play at a time.</p><div class="row"><button class="btn" onclick="location.replace(location.pathname)">Play here instead</button></div></div>';
+  document.body.appendChild(d);
+}
+tabClaim();
+addEventListener('storage', e => {
+  if (e.key === TAB_KEY && e.newValue && e.newValue !== TAB_ID) tabFreeze();
+});
+addEventListener('pageshow', e => e.persisted && tabMine()); // back from the browser's page cache
 function newSave() {
   const neigh = {};
   NEIGH.forEach(n => (neigh[n.id] = { f: 0, req: null, done: false, talked: false, g: [] }));
@@ -217,7 +263,7 @@ let v4news = false;
     S.code = '';
 })();
 function save() {
-  if (VIS() || restoring) return;
+  if (VIS() || restoring || !tabMine()) return;
   S.x = P.x;
   S.y = P.y;
   try {
