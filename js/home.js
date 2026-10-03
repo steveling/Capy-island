@@ -24,6 +24,12 @@ const roomOpen = id => {
 };
 const onceToday = k => S.once[k] !== S.day;
 const markToday = k => (S.once[k] = S.day);
+// each chicken lays on about 2 days in 3, picked per day and per square, so tapping again can't re-roll it
+function henLays(i) {
+  let s = 7;
+  for (const c of `${S.day}:${i}:${S.name}`) s = (s * 31 + c.charCodeAt(0)) % 9973;
+  return s % 3 > 0;
+}
 
 function openHouse(room) {
   const guest = houseGuest();
@@ -106,7 +112,7 @@ function slotTap(i, el) {
   }
   if (VIS()) return;
   if (id) {
-    if (!hEdit) return useThing(id, el);
+    if (!hEdit) return useThing(id, el, i);
     room[i] = null;
     addItem(id);
     SND.lift();
@@ -256,9 +262,12 @@ const DAILY = {
     },
     "🪅 Whack! It's empty now. Refill tomorrow! 🍬"
   ],
+  // every chicken has its own nest, so each one can lay an egg (on the days it lays)
   chicken: [
-    'egg',
-    () => {
+    i => 'egg:' + i,
+    i => {
+      if (!henLays(i))
+        return ['🐔 Cluck... This hen is having a rest day. Try again tomorrow! 💤', '💤', 'pop'];
       addItem('egg');
       return ['🐔 Bawk bawk! You got a fresh egg! 🥚', '🥚', 'pop'];
     },
@@ -288,7 +297,7 @@ const DAILY = {
   ]
 };
 let hoopBest = 0;
-function useThing(id, el) {
+function useThing(id, el, slot) {
   const it = ITEMS[id];
   let msg, part, anim, snd;
   const guest = houseGuest();
@@ -304,10 +313,11 @@ function useThing(id, el) {
       s ? 'yay' : 'oops'
     ];
   } else if (DAILY[id] && !guest) {
-    const [k, get, again] = DAILY[id];
+    const [key, get, again] = DAILY[id],
+      k = typeof key === 'function' ? key(slot) : key;
     if (onceToday(k)) {
       markToday(k);
-      [msg, part, snd] = get();
+      [msg, part, snd] = get(slot);
       save();
     } else [msg, part, snd] = [again, '✨', 'pop'];
     anim = 'wiggle';
