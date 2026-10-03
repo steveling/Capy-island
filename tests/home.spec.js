@@ -78,6 +78,10 @@ test('the backyard: garden shop, a chicken that lays one egg a day, and baking',
   await slots(page).nth(7).click();
   await page.locator('#card .cell', { hasText: 'Chicken' }).click();
   expect(await page.evaluate(() => S.yard[7])).toBe('chicken');
+  // pick a day when this chicken lays
+  await page.evaluate(() => {
+    while (!henLays(7)) S.day++;
+  });
   await slots(page).nth(7).click();
   expect(await toastText(page)).toContain('fresh egg');
   await slots(page).nth(7).click();
@@ -95,6 +99,36 @@ test('the backyard: garden shop, a chicken that lays one egg a day, and baking',
   await expect(page.locator('#card .li', { hasText: 'Pancakes' }).getByRole('button')).toBeDisabled();
   await page.locator('#card .li', { hasText: 'Orange Pie' }).getByRole('button').click();
   expect(await page.evaluate(() => [S.bag.pie, S.bag.orange || 0])).toEqual([1, 0]);
+});
+
+test('every chicken in the backyard can lay an egg, but each one rests on some days', async ({ page }) => {
+  await inHouse(page, () => {
+    S.yard[3] = 'chicken';
+    S.yard[5] = 'chicken';
+    S.yard[9] = 'chicken';
+  });
+  await tab(page, 'Backyard').click();
+  // a day when the chickens on squares 3 and 5 lay but the one on square 9 rests
+  await page.evaluate(() => {
+    while (!(henLays(3) && henLays(5) && !henLays(9))) S.day++;
+  });
+  await slots(page).nth(3).click();
+  expect(await toastText(page)).toContain('fresh egg');
+  await slots(page).nth(5).click();
+  expect(await toastText(page)).toContain('fresh egg');
+  await slots(page).nth(9).click();
+  expect(await toastText(page)).toContain('rest day');
+  await slots(page).nth(3).click();
+  expect(await toastText(page)).toContain('No more eggs today');
+  expect(await page.evaluate(() => S.bag.egg)).toBe(2);
+  // over a few weeks, most days are laying days, but not all
+  const days = await page.evaluate(() => {
+    let n = 0;
+    for (S.day = 1; S.day <= 30; S.day++) n += henLays(3);
+    return n;
+  });
+  expect(days).toBeGreaterThan(10);
+  expect(days).toBeLessThan(30);
 });
 
 test('a nap in the bedroom finds coins under the pillow once a day', async ({ page }) => {
