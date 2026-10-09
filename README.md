@@ -12,6 +12,15 @@ from any web server.
   in the order listed in `index.html`, so code that runs at load time may only use things from
   earlier files.
 
+## The move to capy.pocketgiggles.com
+
+The same files are served at the old address (`https://steveling.github.io/Capy-island/`) and the new one
+(`https://capy.pocketgiggles.com/`). `js/move.js` brings every player on a phone over: the old address packs them into
+the new address's link after the `#` (cloud players as one-time moving codes, others as their whole island) and goes
+there; the new address unpacks them as players. After that the old address just forwards. Add `?stay` to the old
+address to keep playing there (e.g. to save a backup). The tests use `localhost` as the old address and `127.0.0.1` as
+the new one (`window.CAPY_MOVE`).
+
 ## Develop and test
 
 ```sh
