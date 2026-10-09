@@ -93,8 +93,6 @@ function capyBoot() {
     maybeVisit();
   }
 }
-if (gateOpen()) capyBoot();
-else showGate();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) save();
   else if (S.name && CL.booted && !VIS() && newDay()) {
@@ -152,5 +150,12 @@ window.quitLeave = () => {
 
 setInterval(save, 5000);
 requestAnimationFrame(loop);
-if (CL.on && gateOpen()) clStart();
+// the passcode gate first (cloud mode, a phone that hasn't been let in yet), or straight into the game
+function capyStart() {
+  if (gateOpen()) capyBoot();
+  else showGate();
+  if (CL.on && gateOpen()) clStart();
+}
+// at the old address, the move to the new one goes first (js/move.js)
+if (!moveStart(capyStart)) capyStart();
 window.capyBooting = false; // every script loaded and ran: the start-up self-heal in index.html stands down
