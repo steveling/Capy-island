@@ -1,0 +1,8 @@
+// Cloudflare Worker that serves the game at https://capy.pocketgiggles.com.
+// Workers Builds copies index.html, css/ and js/ into dist/ and deploys that folder (see README).
+{
+  "name": "capy-island",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" },
+  "previews": {}
+}
