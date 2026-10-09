@@ -262,6 +262,37 @@ function xferKeys() {
   return out;
 }
 const xferClear = () => xferKeys().forEach(k => localStorage.removeItem(k));
+// Claim a moving code with a separate sign-in kept under storageKey (a sign-in left there by an earlier try is
+// used again). Returns claim_transfer's answer ({ save, save_ts }, or null when the code didn't work) and the
+// sign-in's user id; throws when the cloud can't be reached. If an earlier try with this sign-in got as far as
+// the claim but never saved the island here (the page was closed), the island already belongs to this sign-in,
+// so it's fetched from the cloud instead. Also used by the move to the new address (js/move.js).
+async function xferClaim(code, storageKey) {
+  await clLoad();
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey
+    }
+  });
+  let s = (await sb.auth.getSession()).data.session;
+  const kept = !!s;
+  if (!s) {
+    const a = await sb.auth.signInAnonymously();
+    if (a.error) throw a.error;
+    s = a.data.session;
+  }
+  const res = await sb.rpc('claim_transfer', { p_code: code });
+  if (res.error) throw new Error(res.error.message || 'claim_transfer');
+  let r = res.data;
+  if (!(r && r.save) && kept) {
+    const q = await sb.from('islands').select('save,save_ts').eq('owner', s.user.id).maybeSingle();
+    if (!q.error && q.data && q.data.save) r = q.data;
+  }
+  return { r, uid: s.user.id };
+}
 window.plFromPhone = msg => {
   modal(
     `<h2>📲 Player from another phone</h2>${msg ? `<p class="note">${msg}</p>` : ''}<ol class="steps"><li>On the <b>other</b> phone or browser, open Capy Island as that player.</li><li>A grown-up holds ⚙️ there and taps <b>“📱 Move to a new phone”</b>.</li><li>Type the code it shows:</li></ol>` +
@@ -285,21 +316,7 @@ window.plClaimNew = async () => {
     uid = null,
     err = '';
   try {
-    await clLoad();
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        storageKey: XFER_AUTH
-      }
-    });
-    const s = await sb.auth.signInAnonymously();
-    if (s.error) throw s.error;
-    uid = s.data.session.user.id;
-    const res = await sb.rpc('claim_transfer', { p_code: c });
-    if (res.error) throw new Error(res.error.message || 'claim_transfer');
-    r = res.data;
+    ({ r, uid } = await xferClaim(c, XFER_AUTH));
   } catch (e) {
     err = clErr(e) || 'net';
   }

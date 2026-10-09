@@ -1,0 +1,14 @@
+# Only the game itself (index.html, css/, js/) is served; everything else stays private.
+.*
+node_modules
+tests
+test-results
+playwright-report
+supabase
+scripts
+dist
+package.json
+package-lock.json
+playwright.config.js
+README.md
+wrangler.jsonc

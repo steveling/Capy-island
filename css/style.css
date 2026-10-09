@@ -1747,6 +1747,17 @@ body.kb #chatlog {
   justify-content: center;
   padding: 16px;
 }
+/* moving to the new address: who couldn't come (js/move.js); above the passcode gate */
+#movenote {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(90, 30, 70, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
 /* flying between islands: the clouds part (js/clouds.js) */
 #clouds {
   position: fixed;
